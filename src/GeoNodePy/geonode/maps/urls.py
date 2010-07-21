@@ -1,9 +1,5 @@
 from django.conf.urls.defaults import patterns, url
 
-js_info_dict = {
-    'packages': ('geonode.maps',),
-}
-
 urlpatterns = patterns('geonode.maps.views',
     (r'^$', 'maps'),
     url(r'^new$', 'newmap', name="map_new"),
