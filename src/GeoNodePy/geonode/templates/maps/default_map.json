@@ -8,7 +8,7 @@
         "contact": "For more information, contact <a href='http://opengeo.org'>OpenGeo</a>."
     },
     "wms": {
-        "capra": "http://capra.opengeo.org/geoserver/wms/",
+        "capra": "http://demo.geonode.org/geoserver/wms/",
         "un": "http://preview.grid.unep.ch:8080/geoserver/ows/"
     },
     "map": {
