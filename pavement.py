@@ -174,10 +174,11 @@ def grab(src, dest):
         # Eat exceptions with error code 9; these indicate that we had already finished the download
         if e.errno != 9: raise
 
-@task
-def setup_gs_data(options):
-    """Fetch a data directory to use with GeoServer for testing."""
-    src_url = str(options.config.parser.get('geoserver', 'gs_data_url'))
+def _setup_gs_data(src_url, data_dir=gs_data, clean=False):
+    """
+    Created this implementation function because
+    @task decorated functions do not seem to allow kwargs
+    """
     shared = path("./shared")
     if not shared.exists():
         shared.mkdir()
@@ -185,8 +186,16 @@ def setup_gs_data(options):
     dst_url = shared / "geonode-geoserver-data.zip"
     grab(src_url, dst_url)
 
-    if getattr(options, 'clean', False): path(gs_data).rmtree()
-    if not path(gs_data).exists(): unzip_file(dst_url, gs_data)
+    if clean: path(data_dir).rmtree()
+     
+    if not path(data_dir).exists(): unzip_file(dst_url, data_dir)
+
+@task
+def setup_gs_data(options):
+    """Fetch a data directory to use with GeoServer for testing."""
+    src_url = str(options.config.parser.get('geoserver', 'gs_data_url'))
+    clean =  getattr(options, 'clean', False)
+    _setup_gs_data(src_url, gs_data, clean)
 
 
 @task
@@ -643,7 +652,88 @@ def host(options):
 
 @task
 def test(options):
-    sh("django-admin.py test --settings=geonode.settings")
+    """
+    Creates a test data dir
+    """
+    jettylog = open("tests/jetty.log", "w")
+    djangolog = open("tests/django.log", "w")
+    gs_test_data = "./tests/gs-test-data"
+    src_url = str(options.config.parser.get('geoserver', 'gs_data_url'))
+    _setup_gs_data(src_url, gs_test_data, clean=True)
+
+    with pushd("src/geoserver-geonode-ext"):
+        os.environ["MAVEN_OPTS"] = " ".join([
+            "-XX:CompileCommandFile=../../etc/hotspot_compiler",
+            "-Djetty.host=localhost",
+            "-Djetty.port=8001",
+            "-DGEOSERVER_DATA_DIR=%s" % gs_test_data,
+            "-Xmx512M",
+            "-XX:MaxPermSize=128m"
+        ])
+        mvn = subprocess.Popen(
+            ["mvn", "jetty:run"],
+            stdout=jettylog,
+            stderr=jettylog
+        )
+    django = subprocess.Popen([
+                "paster", 
+                "serve",
+                "--reload",
+    	        "shared/dev-paste.ini"
+            ],  
+            stdout=djangolog,
+            stderr=djangolog
+    )
+
+    def jetty_is_up():
+        try:
+            urllib.urlopen("http://localhost:8001/geoserver/web/")
+            return True
+        except Exception, e:
+            return False
+
+    def django_is_up():
+        try:
+            urllib.urlopen("http://localhost:8000")
+            return True
+        except Exception, e:
+            return False
+    socket.setdefaulttimeout(1)
+
+    info("Django is starting up, please wait...")
+    while not django_is_up():
+        time.sleep(2)
+        print ".",
+
+    info("Logging servlet output to tests/jetty.log")
+    info("Jetty is starting up, please wait...")
+    while not jetty_is_up():
+        time.sleep(2)
+    info("Jetty is now up and running.")
+    info("Starting Django tests")
+    
+    try:
+        sh("django-admin.py test --settings=geonode.settings", ignore_error=False)
+
+        info("Development GeoNode is running at http://localhost:8000/")
+        info("The GeoNode is an unstoppable machine")
+        info("Press CTRL-C to shut down")
+        django.wait()
+        info("Django process terminated, see log for details.")
+    finally:
+        info("Shutting down...")
+        try:
+            django.terminate()
+        except: 
+            pass
+        try:
+            mvn.terminate()
+        except: 
+            pass
+
+        django.wait()
+        mvn.wait()
+        sys.exit()
 
 
 def platform_options(options):
