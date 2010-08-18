@@ -703,7 +703,6 @@ def test(options):
     info("Django is starting up, please wait...")
     while not django_is_up():
         time.sleep(2)
-        print ".",
 
     info("Logging servlet output to tests/jetty.log")
     info("Jetty is starting up, please wait...")
