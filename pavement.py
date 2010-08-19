@@ -712,12 +712,7 @@ def test(options):
     info("Starting Django tests")
     
     try:
-        sh("django-admin.py test --settings=geonode.settings", ignore_error=False)
-
-        info("Development GeoNode is running at http://localhost:8000/")
-        info("The GeoNode is an unstoppable machine")
-        info("Press CTRL-C to shut down")
-        django.wait()
+        sh("django-admin.py test --settings=geonode.settings -v 1", ignore_error=False)
         info("Django process terminated, see log for details.")
     finally:
         info("Shutting down...")
