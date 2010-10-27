@@ -1,8 +1,7 @@
-{% load geonode_media %}
-<link rel="stylesheet" type="text/css" href="{% geonode_media "ext_base" %}resources/css/ext-all.css" />
-<script type="text/javascript" src="{% geonode_media "ext_base" %}adapter/ext/ext-base.js"></script>
-<script type="text/javascript" src="{% geonode_media "ext_lib" %}"></script>
+<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}externals/ext/resources/css/ext-all.css" />
+<script type="text/javascript" src="{{ STATIC_URL }}externals/ext/adapter/ext/ext-base.js"></script>
+<script type="text/javascript" src="{{ STATIC_URL }}externals/ext/ext-all-debug.js"></script>
 
 <script type="text/javascript">
-  Ext.BLANK_IMAGE_URL = "{% geonode_media "ext_base" %}resources/images/default/s.gif";
+  Ext.BLANK_IMAGE_URL = "{{ STATIC_URL }}externals/ext/resources/images/default/s.gif";
 </script>

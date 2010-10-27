@@ -95,6 +95,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.i18n",
     "django.core.context_processors.media",
     "geonode.maps.context_processors.resource_urls",
+    "staticfiles.context_processors.static_url",
 )
 
 MIDDLEWARE_CLASSES = (
@@ -257,42 +258,3 @@ try:
     from local_settings import *
 except ImportError:
     pass
-
-if MINIFIED_RESOURCES: 
-    MEDIA_LOCATIONS = {
-        "ext_base": "ext/",
-        "ext_lib":  "ext/ext-all.js",
-        "ol_theme": "ol/theme/default/style.css",
-        "ol_script": "ol/OpenLayers.js",
-        "gx_themes": "gx/theme/",
-        "gx_script":"gx/GeoExt.js",
-        "PrintPreview_script":"PrintPreview/PrintPreview.js",
-        "PrintPreview_themes": "PrintPreview/theme/",
-        "gxp_script":"gxp/gxp.js",
-        "gxp_theme":"gxp/theme/all.css",
-        "geo_script":"gn/GeoExplorer.js",
-        "app_themes": "gn/theme/app/",
-        "app_script":"gn/GeoNode.js",
-        "ux_script":"gn/ux.js",
-        "ux_resources":"gn/ux/",
-    }
-    for key, value in MEDIA_LOCATIONS.items():
-        MEDIA_LOCATIONS[key] = "build/geonode-client/"+value
-else:
-    MEDIA_LOCATIONS = {
-        "ext_base": "externals/ext/",
-        "ext_lib": "externals/ext/ext-all-debug.js",
-        "ol_theme": "externals/openlayers/theme/default/style.css",
-        "ol_script":"externals/openlayers/lib/OpenLayers.js",
-        "gx_themes":"externals/geoext/geoext/resources/",
-        "gx_script":"externals/geoext/geoext/lib/GeoExt.js",
-        "PrintPreview_script":"externals/PrintPreview/lib/GeoExt.ux/PrintPreview.js",
-        "PrintPreview_themes": "externals/PrintPreview/resources/",
-        "gxp_script":"externals/gxp/src/script/loader.js",
-        "gxp_theme":"externals/gxp/src/theme/all.css",
-        "geo_script":"src/script/app/geo-debug.js",
-        "app_themes": "src/theme/app/",
-        "app_script":"src/script/app/app-debug.js",
-        "ux_script":"src/script/ux/loader.js",
-        "ux_resources":"src/script/ux/",
-    }
