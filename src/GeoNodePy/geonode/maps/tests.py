@@ -34,7 +34,7 @@ geonode.maps.models.get_csw.return_value.records.get.return_value.identification
 geonode.maps.models.get_csw.return_value.records.get.return_value.distribution.onlineresource.url = "http://example.com/"
 geonode.maps.models.get_csw.return_value.records.get.return_value.distribution.onlineresource.description= "bogus data"
 
-TEST_DATA = os.path.join(settings.GEONODE_HOME,
+TEST_DATA = os.path.join(settings.PROJECT_ROOT,
                        'geonode_test_data')
 
 class MapTest(TestCase):
