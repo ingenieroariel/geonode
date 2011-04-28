@@ -502,6 +502,7 @@ def upload(incoming, user=None, overwrite=True):
     if os.path.isfile(incoming):
         layer = file_upload(incoming, user=user, overwrite=overwrite)
         yield {'file': incoming, 'name': layer.name}
+        return
 
     if not os.path.isdir(incoming):
         msg = ('Please pass a filename or a directory name as the "incoming" '
