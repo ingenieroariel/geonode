@@ -499,15 +499,14 @@ def upload(incoming, user=None, overwrite=True):
     """
     check_geonode_is_up()
 
+    if not os.path.exists(incoming):
+        msg = ('%s does not exist. Please pass a filename or a directory.' % incoming)
+        logger.exception(msg)
+        raise GeoNodeException(msg)
+
     if os.path.isfile(incoming):
         layer = file_upload(incoming, user=user, overwrite=overwrite)
         yield {'file': incoming, 'name': layer.name}
-
-    if not os.path.isdir(incoming):
-        msg = ('Please pass a filename or a directory name as the "incoming" '
-               'parameter, instead of %s: %s' % (incoming, type(incoming)))
-        logger.exception(msg)
-        raise GeoNodeException(msg)
 
     datadir = incoming
 
