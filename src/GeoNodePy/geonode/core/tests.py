@@ -4,18 +4,6 @@ import os
 
 class GeoNodeClientTests(TestCase):
     
-    fixtures = ['test_data.json']
-    GEOSERVER = False
-
-    def setUp(self):
-        # If Geoserver and GeoNetwork are not running
-        # avoid running tests that call those views.
-        if "GEOSERVER" in os.environ.keys():
-            self.GEOSERVER = True
-
-    def tearDown(self):
-        pass
-
 
     def test_HomePage(self):
         '''Test if the homepage renders.'''
