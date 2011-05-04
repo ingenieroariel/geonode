@@ -1,38 +1,34 @@
-from django.test import TestCase
+import json
+import os
+import urllib2
+
 from django.test.client import Client
-from geonode.maps.models import Map, Layer
+from django.conf import settings
+from django.test import TestCase
+from django.core.exceptions import ObjectDoesNotExist
+
+from geonode.maps.helpers import upload, file_upload, GeoNodeException
+from geonode.maps.models import Map, Layer, cascading_delete
 from geonode.maps.views import DEFAULT_MAP_CONFIG
-from mock import Mock
 
-import json, os
-import geonode.maps.models
+from geoserver.catalog import FailedRequestError
 
-_gs_resource = Mock()
-_gs_resource.native_bbox = [1, 2, 3, 4]
-Layer.objects.geonetwork = Mock()
-Layer.objects.gs_catalog = Mock()
-Layer.objects.gs_catalog.get_resource.return_value = _gs_resource
+TEST_DATA = settings.TEST_DATA
 
-geonode.maps.models.get_csw = Mock()
-geonode.maps.models.get_csw.return_value.records.get.return_value.identification.keywords = { 'list': [] }
-geonode.maps.models.get_csw.return_value.records.get.return_value.distribution.onlineresource.url = "http://example.com/"
-geonode.maps.models.get_csw.return_value.records.get.return_value.distribution.onlineresource.description= "bogus data"
+if not os.path.isdir(TEST_DATA):
+     msg = ('Please download geonode_test_data from %s and put it in %s'
+            % ('http://dev.geonode.org/test-data/geonode_test_data.tgz',
+                'geonode/tests/data'))
+     raise GeoNodeException(msg)
 
 class MapTest(TestCase):
 
-    fixtures = ['test_data.json', 'map_data.json']
-    GEOSERVER = False
-
-    def setUp(self):
-        # If Geoserver and GeoNetwork are not running
-        # avoid running tests that call those views.
-        if "GEOSERVER" in os.environ:
-            self.GEOSERVER = True
+    fixtures = ['test_data.json']
 
     default_abstract = "This is a demonstration of GeoNode, an application \
 for assembling and publishing web based maps.  After adding layers to the map, \
 use the Save Map button above to contribute your map to the GeoNode \
-community." 
+community."
 
     default_title = "GeoNode Default Map"
 
@@ -123,10 +119,9 @@ community."
 
     def test_search_api(self):
         '''/data/search/api -> Test accessing the data search api JSON'''
-        if self.GEOSERVER:
-            c = Client()
-            response = c.get('/data/search/api')
-            self.failUnlessEqual(response.status_code, 200)
+        c = Client()
+        response = c.get('/data/search/api')
+        self.failUnlessEqual(response.status_code, 200)
 
 
     def test_search_detail(self):
@@ -134,29 +129,15 @@ community."
         /data/search/detail -> Test accessing the data search detail for a layer
         Disabled due to reliance on consistent UUIDs across loads.
         '''
-        if self.GEOSERVER:
-            layer = Layer.objects.all()[0]
-
-            # save to geonetwork so we know the uuid is consistent between
-            # django db and geonetwork
-            layer.save_to_geonetwork()
-
-            c = Client()
-            response = c.get('/data/search/detail', {'uuid':layer.uuid})
-            self.failUnlessEqual(response.status_code, 200)
-
-    def test_search_template(self):
-        from django.template import Context
-        from django.template.loader import get_template
-
         layer = Layer.objects.all()[0]
-        tpl = get_template("maps/csw/transaction_insert.xml")
-        ctx = Context({
-            'layer': layer,
-        })
-        md_doc = tpl.render(ctx)
-        self.assert_("None" not in md_doc, "None in " + md_doc)
 
+        # save to geonetwork so we know the uuid is consistent between
+        # django db and geonetwork
+        layer.save_to_geonetwork()
+
+        c = Client()
+        response = c.get('/data/search/detail', {'uuid':layer.uuid})
+        self.failUnlessEqual(response.status_code, 200)
 
     def test_describe_data(self):
         '''/data/base:CA?describe -> Test accessing the description of a layer '''
@@ -170,12 +151,353 @@ community."
         # but if we log in ...
         c.login(username='bobby', password='bob')
         # ... all should be good
-        if self.GEOSERVER:
-            response = c.get('/data/base:CA?describe')
-            self.failUnlessEqual(response.status_code, 200)
-        else:
-            # If Geoserver is not running, this should give a runtime error
-            try:
-                c.get('/data/base:CA?describe')
-            except RuntimeError:
-                pass
+        response = c.get('/data/base:CA?describe')
+        self.failUnlessEqual(response.status_code, 200)
+
+
+def check_layer(uploaded):
+    """Verify if an object is a valid Layer.
+    """
+    msg = ('Was expecting layer object, got %s' % (type(uploaded)))
+    assert type(uploaded) is Layer, msg
+    msg = ('The layer does not have a valid name: %s' % uploaded.name)
+    assert len(uploaded.name) > 0, msg
+
+
+def get_web_page(url, username=None, password=None):
+    """Get url page possible with username and password.
+    """
+
+    if username is not None:
+
+        # Create password manager
+        passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+        passman.add_password(None, url, username, password)
+
+        # create the handler
+        authhandler = urllib2.HTTPBasicAuthHandler(passman)
+        opener = urllib2.build_opener(authhandler)
+        urllib2.install_opener(opener)
+
+    try:
+        pagehandle = urllib2.urlopen(url)
+    except HTTPError, e:
+        msg = ('The server couldn\'t fulfill the request. '
+                'Error code: ' % e.code)
+        e.args = (msg,)
+        raise
+    except urllib2.URLError, e:
+        msg = 'Could not open URL "%s": %s' % (url, e)
+        e.args = (msg,)
+        raise
+    else:
+        page = pagehandle.readlines()
+
+    return page
+
+
+class GeoNodeMapTest(TestCase):
+    """Tests geonode.maps app/module
+    """
+
+    fixtures = ['test_data.json', 'map_data.json']
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    # maps/models.py tests
+
+    def test_layer_delete_from_geoserver(self):
+        """Verify that layer is correctly deleted from GeoServer
+        """
+        # Layer.delete_from_geoserver() uses cascading_delete()
+        # Should we explicitly test that the styles and store are
+        # deleted as well as the resource itself?
+        # There is already an explicit test for cascading delete
+
+        gs_cat = Layer.objects.gs_catalog
+
+        # Test Uploading then Deleting a Shapefile from GeoServer
+        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_layer = file_upload(shp_file)
+        shp_store = gs_cat.get_store(shp_layer.name)
+        shp_layer.delete_from_geoserver()
+        self.assertRaises(FailedRequestError,
+            lambda: gs_cat.get_resource(shp_layer.name, store=shp_store))
+
+        shp_layer.delete()
+
+        # Test Uploading then Deleting a TIFF file from GeoServer
+        tif_file = os.path.join(TEST_DATA, 'test_grid.tif')
+        tif_layer = file_upload(tif_file)
+        tif_store = gs_cat.get_store(tif_layer.name)
+        tif_layer.delete_from_geoserver()
+        self.assertRaises(FailedRequestError,
+            lambda: gs_cat.get_resource(shp_layer.name, store=tif_store))
+
+        tif_layer.delete()
+
+    def test_layer_delete_from_geonetwork(self):
+        """Verify that layer is correctly deleted from GeoNetwork
+        """
+
+        gn_cat = Layer.objects.gn_catalog
+
+        # Test Uploading then Deleting a Shapefile from GeoNetwork
+        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_layer = file_upload(shp_file)
+        shp_layer.delete_from_geonetwork()
+        shp_layer_info = gn_cat.get_by_uuid(shp_layer.uuid)
+        assert shp_layer_info == None
+
+        # Clean up and completely delete the layer
+        shp_layer.delete()
+
+        # Test Uploading then Deleting a TIFF file from GeoNetwork
+        tif_file = os.path.join(TEST_DATA, 'test_grid.tif')
+        tif_layer = file_upload(tif_file)
+        tif_layer.delete_from_geonetwork()
+        tif_layer_info = gn_cat.get_by_uuid(tif_layer.uuid)
+        assert tif_layer_info == None
+
+        # Clean up and completely delete the layer
+        tif_layer.delete()
+
+    def test_delete_layer(self):
+        """Verify that the 'delete_layer' pre_delete hook is functioning
+        """
+
+        gs_cat = Layer.objects.gs_catalog
+        gn_cat = Layer.objects.gn_catalog
+
+        # Upload a Shapefile Layer
+        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_layer = file_upload(shp_file)
+        shp_layer_id = shp_layer.pk
+        shp_store = gs_cat.get_store(shp_layer.name)
+        shp_store_name = shp_store.name
+
+        id = shp_layer.pk
+        name = shp_layer.name
+        uuid = shp_layer.uuid
+
+        # Delete it with the Layer.delete() method
+        shp_layer.delete()
+
+        # Verify that it no longer exists in GeoServer
+        self.assertRaises(FailedRequestError,
+            lambda: gs_cat.get_resource(name, store=shp_store))
+        self.assertRaises(FailedRequestError,
+            lambda: gs_cat.get_store(shp_store_name))
+
+        # Verify that it no longer exists in GeoNetwork
+        shp_layer_gn_info = gn_cat.get_by_uuid(uuid)
+        assert shp_layer_gn_info == None
+
+        # Check that it was also deleted from GeoNodes DB
+        self.assertRaises(ObjectDoesNotExist,
+            lambda: Layer.objects.get(pk=shp_layer_id))
+
+    # maps/utils.py tests
+
+    def test_layer_upload(self):
+        """Test that layers can be uploaded to running GeoNode/GeoServer
+        """
+        layers = {}
+        expected_layers = []
+        not_expected_layers = []
+        datadir = TEST_DATA
+        BAD_LAYERS = [
+            'lembang_schools_percentage_loss.shp',
+        ]
+
+        for filename in os.listdir(datadir):
+            basename, extension = os.path.splitext(filename)
+            if extension.lower() in ['.tif', '.shp', '.zip']:
+                if filename not in BAD_LAYERS:
+                    expected_layers.append(os.path.join(datadir, filename))
+                else:
+                    not_expected_layers.append(
+                                    os.path.join(datadir, filename)
+                                             )
+        uploaded = upload(datadir)
+
+        for item in uploaded:
+            errors = 'errors' in item
+            if errors:
+                # should this file have been uploaded?
+                if item['file'] in not_expected_layers:
+                    continue
+                msg = 'Could not upload %s. ' % item['file']
+                assert errors is False, msg + 'Error was: %s' % item['errors']
+                msg = ('Upload should have returned either "name" or '
+                  '"errors" for file %s.' % item['file'])
+            else:
+                assert 'name' in item, msg
+                layers[item['file']] = item['name']
+
+        msg = ('There were %s compatible layers in the directory,'
+               ' but only %s were sucessfully uploaded' %
+               (len(expected_layers), len(layers)))
+        assert len(layers) == len(expected_layers), msg
+
+        uploaded_layers = [layer for layer in layers.items()]
+
+        for layer in expected_layers:
+            msg = ('The following file should have been uploaded'
+                   'but was not: %s. ' % layer)
+            assert layer in layers, msg
+
+            layer_name = layers[layer]
+
+            # Check the layer is in the Django database
+            Layer.objects.get(name=layer_name)
+
+            # Check that layer is in geoserver
+            found = False
+            gs_username, gs_password = settings.GEOSERVER_CREDENTIALS
+            page = get_web_page(os.path.join(settings.GEOSERVER_BASE_URL,
+                                             'rest/layers'),
+                                             username=gs_username,
+                                             password=gs_password)
+            for line in page:
+                if line.find('rest/layers/%s.html' % layer_name) > 0:
+                    found = True
+            if not found:
+                msg = ('Upload could not be verified, the layer %s is not '
+                   'in geoserver %s, but GeoNode did not raise any errors, '
+                   'this should never happen.' %
+                   (layer_name, settings.GEOSERVER_BASE_URL))
+                raise GeoNodeException(msg)
+
+        server_url = settings.GEOSERVER_BASE_URL + 'ows?'
+        # Verify that the GeoServer GetCapabilities record is accesible:
+        #metadata = get_layers_metadata(server_url, '1.0.0')
+        #msg = ('The metadata list should not be empty in server %s'
+        #        % server_url)
+        #assert len(metadata) > 0, msg
+        # Check the keywords are recognized too
+
+        # Clean up and completely delete the layers
+        for layer in expected_layers:
+            layer_name = layers[layer]
+            Layer.objects.get(name=layer_name).delete()
+
+    def test_extension_not_implemented(self):
+        """Verify a GeoNodeException is returned for not compatible extensions
+        """
+        sampletxt = os.path.join(TEST_DATA,
+            'lembang_schools_percentage_loss.dbf')
+        try:
+            file_upload(sampletxt)
+        except GeoNodeException, e:
+            pass
+        except Exception, e:
+            msg = ('Was expecting a %s, got %s instead.' %
+                   (GeoNodeException, type(e)))
+            assert e is GeoNodeException, msg
+
+
+    def test_shapefile(self):
+        """Test Uploading a good shapefile
+        """
+        thefile = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        uploaded = file_upload(thefile)
+        check_layer(uploaded)
+
+        # Clean up and completely delete the layer
+        uploaded.delete()
+
+    def test_bad_shapefile(self):
+        """Verifying GeoNode complains about a shapefile without .prj
+        """
+
+        thefile = os.path.join(TEST_DATA, 'lembang_schools_percentage_loss.shp')
+        try:
+            uploaded = file_upload(thefile)
+        except GeoNodeException, e:
+            pass
+        except Exception, e:
+            msg = ('Was expecting a %s, got %s instead.' %
+                   (GeoNodeException, type(e)))
+            assert e is GeoNodeException, msg
+
+
+    def test_tiff(self):
+        """Uploading a good .tiff
+        """
+        thefile = os.path.join(TEST_DATA, 'test_grid.tif')
+        uploaded = file_upload(thefile)
+        check_layer(uploaded)
+
+        # Clean up and completely delete the layer
+        uploaded.delete()
+    
+    def test_repeated_upload(self):
+        """Upload the same file more than once
+        """
+        thefile = os.path.join(TEST_DATA, 'test_grid.tif')
+        uploaded1 = file_upload(thefile)
+        check_layer(uploaded1)
+        uploaded2 = file_upload(thefile, overwrite=True)
+        check_layer(uploaded2)
+        uploaded3 = file_upload(thefile, overwrite=False)
+        check_layer(uploaded3)
+        msg = ('Expected %s but got %s' % (uploaded1.name, uploaded2.name))
+        assert uploaded1.name == uploaded2.name, msg
+        msg = ('Expected a different name when uploading %s using '
+               'overwrite=False but got %s' % (thefile, uploaded3.name))
+        assert uploaded1.name != uploaded3.name, msg
+
+        # Clean up and completely delete the layers
+
+        # uploaded1 is overwritten by uploaded2 ... no need to delete it
+        uploaded2.delete()
+        uploaded3.delete()
+    
+    # gs_helpers tests
+
+    def test_fixup_style(self):
+        assert False
+
+    def test_cascading_delete(self):
+        """Verify that the gs_helpers.cascading_delete() method is working properly
+        """
+        gs_cat = Layer.objects.gs_catalog
+
+        # Upload a Shapefile
+        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_layer = file_upload(shp_file)
+       
+        # Save the names of the Resource/Store/Styles 
+        resource_name = shp_layer.resource.name
+        store = shp_layer.resource.store
+        store_name = store.name
+        layer = gs_cat.get_layer(resource_name)
+        layer = gs_cat.get_layer(resource_name)
+        layer = gs_cat.get_layer(resource_name)
+        layer = gs_cat.get_layer(resource_name)
+        layer = gs_cat.get_layer(resource_name)
+        msg = 'Layer %s was not correctly saved in GeoServer.' % resource_name
+        assert layer is not None, msg
+        styles = layer.styles + [layer.default_style]
+        
+        # Delete the Layer using cascading_delete()
+        cascading_delete(gs_cat, shp_layer.resource)
+        
+        # Verify that the styles were deleted
+        for style in styles:
+            s = gs_cat.get_style(style)
+            assert s == None
+        
+        # Verify that the resource was deleted
+        self.assertRaises(FailedRequestError, lambda: gs_cat.get_resource(resource_name, store=store))
+
+        # Verify that the store was deleted 
+        self.assertRaises(FailedRequestError, lambda: gs_cat.get_store(store_name))
+
+        # Clean up by deleting the layer from GeoNode's DB and GeoNetwork
+        shp_layer.delete()
