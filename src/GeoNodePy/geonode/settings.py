@@ -119,6 +119,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.debug",
     "django.core.context_processors.i18n",
     "django.core.context_processors.media",
+    "django.core.context_processors.static",
     "geonode.maps.context_processors.resource_urls",
 )
 
@@ -277,6 +278,12 @@ AUTH_PROFILE_MODULE = 'maps.Contact'
 REGISTRATION_OPEN = False
 
 SERVE_MEDIA = DEBUG;
+
+STATICFILES_FINDERS = [
+    'staticfiles.finders.FileSystemFinder',
+    'staticfiles.finders.AppDirectoriesFinder',
+    'staticfiles.finders.LegacyAppDirectoriesFinder'
+]
 
 #GEONODE_CLIENT_LOCATION = "http://localhost:8001/geonode-client/"
 GEONODE_CLIENT_LOCATION = "/media/static/"
