@@ -1320,6 +1320,8 @@ class Map(models.Model, PermissionLevelMixin):
                 if v == source:
                     if v['id'] in sources:
                         return v['id']
+                    else:
+                        continue
                     return k
             return None
 
