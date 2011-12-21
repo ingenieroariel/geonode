@@ -6,7 +6,6 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
 from django.template import RequestContext
-from django.views.decorators.csrf import csrf_exempt
 import json
 
 def index(request): 
@@ -29,7 +28,6 @@ class AjaxLoginForm(forms.Form):
     password = forms.CharField(widget=forms.PasswordInput)
     username = forms.CharField()
 
-@csrf_exempt
 def ajax_login(request):
     if request.method != 'POST':
         return HttpResponse(
@@ -64,7 +62,6 @@ def ajax_login(request):
                 status=400
             )
 
-@csrf_exempt
 def ajax_lookup(request):
     if request.method != 'POST':
         return HttpResponse(
