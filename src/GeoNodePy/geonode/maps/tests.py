@@ -275,6 +275,16 @@ community."
         pass
 
     # maps/views.py tests
+    def test_map_list(self):
+        """Check the maps page renders.
+        """
+        c = Client()
+
+        # Test that saving a map when not logged in gives 401
+        response = c.get("/maps/")
+        self.assertEqual(response.status_code,200)
+
+
 
     def test_project_center(self):
         pass
