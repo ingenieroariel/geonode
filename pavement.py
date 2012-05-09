@@ -467,6 +467,11 @@ def install_sphinx_conditionally(options):
         # available
         sys.modules['paver.doctools'] = reload(sys.modules['paver.doctools'])
 
+@task
+def load_sample_data():
+    import gisdata
+    sh("django-admin.py importlayers %s --settings=geonode.settings" % gisdata.GOOD_DATA)
+ 
 
 @task
 @needs('package_client')
@@ -524,8 +529,7 @@ def host(options):
         time.sleep(2)
 
     try:
-        sh("django-admin.py updatelayers --settings=geonode.settings")
-        
+       
         info("Development GeoNode is running at http://" + options.host.bind + ":8000/")
         info("The GeoNode is an unstoppable machine")
         info("Press CTRL-C to shut down")
