@@ -27,7 +27,7 @@ from geonode.maps.gs_helpers import cascading_delete, fixup_style
 
 from django.core.exceptions import ObjectDoesNotExist
 
-TEST_DATA = os.path.join(settings.PROJECT_ROOT, 'geonode_test_data')
+from gisdata import GOOD_DATA as TEST_DATA
 
 LOGIN_URL=settings.SITEURL + "accounts/login/"
 
