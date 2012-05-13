@@ -27,7 +27,9 @@ from geonode.maps.gs_helpers import cascading_delete, fixup_style
 
 from django.core.exceptions import ObjectDoesNotExist
 
+from gisdata import DATA_DIR
 from gisdata import GOOD_DATA as TEST_DATA
+from gisdata import BAD_DATA
 
 LOGIN_URL=settings.SITEURL + "accounts/login/"
 
@@ -72,13 +74,13 @@ class NormalUserTest(TestCase):
 
         #TODO: Would be nice to ensure the name is available before running the test...
         norman = User.objects.get(username="norman")
-        save("lembang_schools_by_norman", os.path.join(TEST_DATA, "lembang_schools.shp"), norman,
-                overwrite = False, abstract = "Schools which are in Lembang",
-                title = "Lembang Schools", permissions = {'users': []})
+        save("san_andres_poi_by_norman", os.path.join(TEST_DATA, "vector", "san_andres_y_providencia_poi.shp"), norman,
+                overwrite = False, abstract = "Point of interest in San Andres",
+                title = "San Andres POI", permissions = {'users': []})
 
         # No assertion, but this will raise an error if the permissions don't
         # allow metadata editing
-        get_web_page(settings.SITEURL + "data/geonode:lembang_schools_by_norman?describe",
+        get_web_page(settings.SITEURL + "data/geonode:san_andres_poi_by_norman?describe",
                 username="norman", password="norman", login_url=LOGIN_URL)
 
 
@@ -100,9 +102,9 @@ class GeoNodeMapTest(TestCase):
         layers = {}
         expected_layers = []
         not_expected_layers = []
-        datadir = TEST_DATA
+        datadir = DATA_DIR
         BAD_LAYERS = [
-            'lembang_schools_percentage_loss.shp',
+            'points_epsg2249_no_prj.shp',
         ]
 
         for filename in os.listdir(datadir):
@@ -180,22 +182,16 @@ class GeoNodeMapTest(TestCase):
         """Verify a GeoNodeException is returned for not compatible extensions
         """
         sampletxt = os.path.join(TEST_DATA,
-            'lembang_schools_percentage_loss.dbf')
-        try:
-            file_upload(sampletxt)
-        except GeoNodeException, e:
-            pass
-        except Exception, e:
-            raise
-            # msg = ('Was expecting a %s, got %s instead.' %
-            #        (GeoNodeException, type(e)))
-            # assert e is GeoNodeException, msg
+            'san_andres_y_providencia_poi.dbf')
+        self.assertRaises(GeoNodeException, 
+            lambda: file_upload(sampletxt)
+            )
 
 
     def test_shapefile(self):
         """Test Uploading a good shapefile
         """
-        thefile = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        thefile = os.path.join(TEST_DATA, 'vector', 'san_andres_y_providencia_poi.shp')
         uploaded = file_upload(thefile)
         check_layer(uploaded)
 
@@ -206,22 +202,16 @@ class GeoNodeMapTest(TestCase):
         """Verifying GeoNode complains about a shapefile without .prj
         """
 
-        thefile = os.path.join(TEST_DATA, 'lembang_schools_percentage_loss.shp')
-        try:
-            uploaded = file_upload(thefile)
-        except GeoNodeException, e:
-            pass
-        except Exception, e:
-            raise
-            # msg = ('Was expecting a %s, got %s instead.' %
-            #        (GeoNodeException, type(e)))
-            # assert e is GeoNodeException, msg
+        thefile = os.path.join(BAD_DATA, 'points_epsg2249_no_prj.shp')
+        self.assertRaises(GeoNodeException,
+                 lambda: file_upload(thefile)
+                 )
 
 
     def test_tiff(self):
         """Uploading a good .tiff
         """
-        thefile = os.path.join(TEST_DATA, 'test_grid.tif')
+        thefile = os.path.join(TEST_DATA, 'raster', 'test_grid.tif')
         uploaded = file_upload(thefile)
         check_layer(uploaded)
 
@@ -231,7 +221,7 @@ class GeoNodeMapTest(TestCase):
     def test_repeated_upload(self):
         """Upload the same file more than once
         """
-        thefile = os.path.join(TEST_DATA, 'test_grid.tif')
+        thefile = os.path.join(TEST_DATA, 'raster', 'test_grid.tif')
         uploaded1 = file_upload(thefile)
         check_layer(uploaded1)
         uploaded2 = file_upload(thefile, overwrite=True)
@@ -361,7 +351,7 @@ class GeoNodeMapTest(TestCase):
         gs_cat = Layer.objects.gs_catalog
 
         # Test Uploading then Deleting a Shapefile from GeoServer
-        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_file = os.path.join(TEST_DATA, 'vector', 'san_andres_y_providencia_poi.shp')
         shp_layer = file_upload(shp_file)
         shp_store = gs_cat.get_store(shp_layer.name)
         shp_layer.delete_from_geoserver()
@@ -371,7 +361,7 @@ class GeoNodeMapTest(TestCase):
         shp_layer.delete()
 
         # Test Uploading then Deleting a TIFF file from GeoServer
-        tif_file = os.path.join(TEST_DATA, 'test_grid.tif')
+        tif_file = os.path.join(TEST_DATA, 'raster', 'test_grid.tif')
         tif_layer = file_upload(tif_file)
         tif_store = gs_cat.get_store(tif_layer.name)
         tif_layer.delete_from_geoserver()
@@ -387,7 +377,7 @@ class GeoNodeMapTest(TestCase):
         gn_cat = Layer.objects.gn_catalog
 
         # Test Uploading then Deleting a Shapefile from GeoNetwork
-        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_file = os.path.join(TEST_DATA, 'vector', 'san_andres_y_providencia_poi.shp')
         shp_layer = file_upload(shp_file)
         shp_layer.delete_from_geonetwork()
         shp_layer_info = gn_cat.get_by_uuid(shp_layer.uuid)
@@ -397,7 +387,7 @@ class GeoNodeMapTest(TestCase):
         shp_layer.delete()
 
         # Test Uploading then Deleting a TIFF file from GeoNetwork
-        tif_file = os.path.join(TEST_DATA, 'test_grid.tif')
+        tif_file = os.path.join(TEST_DATA, 'raster', 'test_grid.tif')
         tif_layer = file_upload(tif_file)
         tif_layer.delete_from_geonetwork()
         tif_layer_info = gn_cat.get_by_uuid(tif_layer.uuid)
@@ -414,7 +404,7 @@ class GeoNodeMapTest(TestCase):
         gn_cat = Layer.objects.gn_catalog
 
         # Upload a Shapefile Layer
-        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_file = os.path.join(TEST_DATA, 'vector', 'san_andres_y_providencia_poi.shp')
         shp_layer = file_upload(shp_file)
         shp_layer_id = shp_layer.pk
         shp_store = gs_cat.get_store(shp_layer.name)
@@ -449,7 +439,7 @@ class GeoNodeMapTest(TestCase):
         gs_cat = Layer.objects.gs_catalog
 
         # Upload a Shapefile
-        shp_file = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        shp_file = os.path.join(TEST_DATA, 'vector', 'san_andres_y_providencia_poi.shp')
         shp_layer = file_upload(shp_file)
        
         # Save the names of the Resource/Store/Styles 
@@ -480,7 +470,7 @@ class GeoNodeMapTest(TestCase):
     def test_keywords_upload(self):
         """Check that keywords can be passed to file_upload
         """
-        thefile = os.path.join(TEST_DATA, 'lembang_schools.shp')
+        thefile = os.path.join(TEST_DATA, 'vector', 'san_andres_y_providencia_poi.shp')
         uploaded = file_upload(thefile, keywords=['foo', 'bar'], overwrite=True)
         keywords = uploaded.keyword_list()
         msg='No keywords found in layer %s' % uploaded.name
@@ -491,7 +481,7 @@ class GeoNodeMapTest(TestCase):
 
     def test_empty_bbox(self):
         """Regression-test for failures caused by zero-width bounding boxes"""
-        thefile = os.path.join(TEST_DATA, 'single_point.shp')
+        thefile = os.path.join(TEST_DATA, 'vector', 'single_point.shp')
         uploaded = file_upload(thefile, overwrite=True)
         detail_page_url = urljoin(settings.SITEURL, uploaded.get_absolute_url())
         get_web_page(detail_page_url)  # no assertion, but this will fail if the page 500's
