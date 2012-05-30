@@ -6,6 +6,12 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.importlib import import_module
 
+DEFAULT_CSW_ALIAS = 'default'
+
+if DEFAULT_CSW_ALIAS not in settings.CSW:
+    raise ImproperlyConfigured("You must define a '%s' CSW" % DEFAULT_CSW_ALIAS)
+
+
 def get_catalogue(backend=None, fail_silently=False, **kwds):
     """Load a catalogue backend and return an instance of it.
        If backend is None (default) settings.CSW is used.
@@ -13,7 +19,7 @@ def get_catalogue(backend=None, fail_silently=False, **kwds):
        Both fail_silently and other keyword arguments are used in the
        constructor of the backend.
     """
-    path = backend or settings.CSW
+    path = backend or settings.CSW[DEFAULT_CSW_ALIAS]
     try:
         mod_name, klass_name = path.rsplit('.', 1)
         mod = import_module(mod_name)
