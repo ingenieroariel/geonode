@@ -1,34 +1,54 @@
 """
 Tools for managing a CatalogWebService (CSW)
 """
-
+import os
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.importlib import import_module
 
 DEFAULT_CSW_ALIAS = 'default'
 
+# GeoNode uses this if the CSW setting is empty (None).
+if not hasattr(settings, 'CSW'):
+    settings.CSW = { DEFAULT_CSW_ALIAS: 'geonode.backends.dummy'}
+
+# If settings.CSW is defined, we expect it to be properly named
 if DEFAULT_CSW_ALIAS not in settings.CSW:
     raise ImproperlyConfigured("You must define a '%s' CSW" % DEFAULT_CSW_ALIAS)
 
 
-def get_catalogue(backend=None, fail_silently=False, **kwds):
-    """Load a catalogue backend and return an instance of it.
-       If backend is None (default) settings.CSW is used.
+def load_backend(backend_name):
+    # Look for a fully qualified CSW backend name
+    try:
+        return import_module('.base', backend_name)
+    except ImportError as e_user:
+        # The CSW backend wasn't found. Display a helpful error message
+        # listing all possible (built-in) CSW backends.
+        backend_dir = os.path.join(os.path.dirname(__file__), 'backends')
+        try:
+            available_backends = [f for f in os.listdir(backend_dir)
+                    if os.path.isdir(os.path.join(backend_dir, f))
+                    and not f.startswith('.')]
+        except EnvironmentError:
+            available_backends = []
 
-       Both fail_silently and other keyword arguments are used in the
-       constructor of the backend.
+        if backend_name not in available_backends:
+            backend_reprs = map(repr, sorted(available_backends))
+            error_msg = ("%r isn't an available catalogue backend.\n"
+                         "Try using geonode.catalogue.backends.XXX, where XXX "
+                         "is one of:\n    %s\nError was: %s" %
+                         (backend_name, ", ".join(backend_reprs), e_user))
+            raise ImproperlyConfigured(error_msg)
+        else:
+            # If there's some other error, this must be an error in GeoNode
+            raise
+
+def get_catalogue(backend=None):
+    """Returns a catalogue object.
     """
-    path = backend or settings.CSW[DEFAULT_CSW_ALIAS]
-    try:
-        mod_name, klass_name = path.rsplit('.', 1)
-        mod = import_module(mod_name)
-    except ImportError as e:
-        raise ImproperlyConfigured(('Error importing catalogue backend module %s: "%s"'
-                                    % (mod_name, e)))
-    try:
-        klass = getattr(mod, klass_name)
-    except AttributeError:
-        raise ImproperlyConfigured(('Module "%s" does not define a '
-                                    '"%s" class' % (mod_name, klass_name)))
-    return klass(fail_silently=fail_silently, **kwds)
+    the_backend = backend or settings.CSW
+    default_backend = the_backend[DEFAULT_CSW_ALIAS]
+    backend_name = default_backend['ENGINE']
+    return load_backend(backend_name)
+
+get_catalogue()
