@@ -266,7 +266,7 @@ CSW = {
      'default': {
          'ENGINE': 'geonode.catalogue.backends.geonetwork',
          'USERNAME': 'admin',
-         'PASSWORD': 'admin'
+         'PASSWORD': 'admin',
          'URL': 'http://localhost:8001/geonetwork',
          }
         }
