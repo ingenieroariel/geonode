@@ -261,15 +261,15 @@ GEOSERVER_BASE_URL = "http://localhost:8001/geoserver/"
 # edit layer details on GeoServer
 GEOSERVER_CREDENTIALS = "geoserver_admin", SECRET_KEY
 
-
-# GeoNetwork information
-
-# The FULLY QUALIFIED url to the GeoNetwork instance for this GeoNode
-GEONETWORK_BASE_URL = "http://localhost:8001/geonetwork/"
-
-# The username and password for a user with write access to GeoNetwork
-GEONETWORK_CREDENTIALS = "admin", "admin"
-
+#CSW information
+CSW = {
+     'default': {
+         'ENGINE': 'geonode.catalogue.backends.geonetwork',
+         'USERNAME': 'admin',
+         'PASSWORD': 'admin'
+         'URL': 'http://localhost:8001/geonetwork',
+         }
+        }
 
 # GeoNode javascript client configuration
 
