@@ -43,6 +43,7 @@ LANGUAGES = (
     ('el', 'Ελληνικά'),
     ('id', 'Bahasa Indonesia'),
     ('zh', '中國的'),
+    ('ar', 'اليَمَن'),
 )
 
 # If you set this to False, Django will make some optimizations so as not
