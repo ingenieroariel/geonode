@@ -559,7 +559,13 @@ def host(options):
 
 @task
 def test(options):
-    sh("django-admin.py test --settings=geonode.settings")
+    with pushd('shared'):
+        grab("http://dev.geonode.org/test-data/geonode_test_data.tgz", "geonode_test_data.tgz")
+    tar = tarfile.open("shared/geonode_test_data.tgz")
+    with pushd('src/geonode-integration'):
+        tar.extractall()
+        tar.close()
+        sh("GEONODE_URL=\"http://localhost/\"; GEOSERVER_URL=\"http://localhost:8001/geoserver-geonode-dev/\" python manage.py test")
 
 
 def platform_options(options):
