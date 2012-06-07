@@ -43,10 +43,13 @@ def load_backend(backend_name):
             # If there's some other error, this must be an error in GeoNode
             raise
 
-def get_catalogue(backend=None):
-    """Returns a catalogue object.
+
+def get_csw():
+    """Function to load a CSW backend dynamically.
     """
-    the_backend = backend or settings.CSW
-    default_backend = the_backend[DEFAULT_CSW_ALIAS]
+    default_backend = settings.CSW[DEFAULT_CSW_ALIAS]
     backend_name = default_backend['ENGINE']
-    return load_backend(backend_name)
+    backend = load_backend(backend_name)
+    catalog_class = getattr(backend, 'CSWBackend')
+    csw = catalog_class(**default_backend)
+    return csw
