@@ -35,7 +35,7 @@ def load_backend(backend_name):
         if backend_name not in available_backends:
             backend_reprs = map(repr, sorted(available_backends))
             error_msg = ("%r isn't an available catalogue backend.\n"
-                         "Try using geonode.csw.backends.XXX, where XXX "
+                         "Try using geonode.csw.backends.NAME, where NAME "
                          "is one of:\n    %s\nError was: %s" %
                          (backend_name, ", ".join(backend_reprs), e_user))
             raise ImproperlyConfigured(error_msg)
