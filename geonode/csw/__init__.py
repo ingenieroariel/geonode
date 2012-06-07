@@ -50,5 +50,3 @@ def get_catalogue(backend=None):
     default_backend = the_backend[DEFAULT_CSW_ALIAS]
     backend_name = default_backend['ENGINE']
     return load_backend(backend_name)
-
-get_catalogue()
