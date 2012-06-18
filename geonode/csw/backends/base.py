@@ -323,3 +323,15 @@ class BaseCSWBackend(CatalogueServiceWeb):
                 except:
                     pass
         return links
+
+
+    def metadata_record(self, instance):
+        return  self.get_by_uuid(instance.uuid)
+
+
+    def full_metadata_links(self, instance):
+        """Returns complete list of dicts of possible Catalogue metadata URLs
+           NOTE: we are NOT using the above properties because this will
+           break the OGC W*S Capabilities rules
+        """
+        return self.urls_for_uuid(instance.uuid)

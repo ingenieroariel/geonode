@@ -16,7 +16,6 @@ from django.utils.translation import ugettext_lazy as _
 
 from geonode import GeoNodeException
 from geonode.utils import _wms, _user, _password, get_wms, bbox_to_wkt
-from geonode.csw import CSW
 from geonode.gs_helpers import cascading_delete
 from geonode.people.models import Contact, Role 
 from geonode.security.models import PermissionLevelMixin
@@ -345,22 +344,23 @@ class Layer(models.Model, PermissionLevelMixin):
  
         # Check the layer is in the GeoNetwork catalog and points back to get_absolute_url
 
+        #FIXME: Find a way to enable this conditionally on CSW being enabled.
         # Check the layer is in the catalogue and points back to get_absolute_url
-        catalogue_layer = None
-        with CSW() as csw_cat:
-            try:
-                catalogue_layer = csw_cat.get_by_uuid(self.uuid)
-            except:
-                msg = "Catalogue Record Missing for layer [%s]" % self.typename
-                raise GeoNodeException(msg)
+        #catalogue_layer = None
+        #with CSW() as csw_cat:
+        #    try:
+        #        catalogue_layer = csw_cat.get_by_uuid(self.uuid)
+        #    except:
+        #        msg = "Catalogue Record Missing for layer [%s]" % self.typename
+        #        raise GeoNodeException(msg)
 
-        if hasattr(catalogue_layer, 'distribution') and hasattr(catalogue_layer.distribution, 'online'):
-            for link in catalogue_layer.distribution.online:
-                if link.protocol == 'WWW:LINK-1.0-http--link':
-                    if(link.url != self.get_absolute_url()):
-                        msg = "Catalogue Layer URL does not match layer URL for layer [%s]" % self.typename
-        else:        
-            msg = "Catalogue Layer URL not found layer [%s]" % self.typename
+        #if hasattr(catalogue_layer, 'distribution') and hasattr(catalogue_layer.distribution, 'online'):
+        #    for link in catalogue_layer.distribution.online:
+        #        if link.protocol == 'WWW:LINK-1.0-http--link':
+        #            if(link.url != self.get_absolute_url()):
+        #                msg = "Catalogue Layer URL does not match layer URL for layer [%s]" % self.typename
+        #else:        
+        #    msg = "Catalogue Layer URL not found layer [%s]" % self.typename
 
 
         # if(csw_layer.uri != self.get_absolute_url()):
@@ -402,11 +402,6 @@ class Layer(models.Model, PermissionLevelMixin):
             # response, body = http.request(wms_url)
             # _wms = WebMapService(wms_url, xml=body)
         return _wms[self.typename]
-
-    def metadata_record(self):
-        with CSW() as csw_cat:
-            record =  csw_cat.get_by_uuid(self.uuid)
-        return record
 
     @property
     def attribute_names(self):
@@ -455,19 +450,6 @@ class Layer(models.Model, PermissionLevelMixin):
     def delete_from_geoserver(self):
         cascading_delete(Layer.objects.gs_catalog, self.resource)
 
-    def delete_from_catalogue(self):
-        with CSW() as csw_cat:
-            csw_cat.delete_layer(self)
-
-    def save_to_catalogue(self):
-        with CSW() as csw_cat:
-            record = csw_cat.get_by_uuid(self.uuid)
-            if record is None:
-                md_link = csw_cat.create_from_layer(self)
-                self.metadata_links = [("text/xml", "TC211", md_link)]
-            else:
-                csw_cat.update_layer(self)
-
     @property
     def resource(self):
         if not hasattr(self, "_resource_cache"):
@@ -481,25 +463,6 @@ class Layer(models.Model, PermissionLevelMixin):
             store = cat.get_store(self.store, ws)
             self._resource_cache = cat.get_resource(self.name, store)
         return self._resource_cache
-
-    def _get_metadata_links(self):
-        return self.resource.metadata_links
-
-    def _set_metadata_links(self, md_links):
-        self.resource.metadata_links = md_links
-
-    metadata_links = property(_get_metadata_links, _set_metadata_links)
-
-    @property
-    def full_metadata_links(self):
-        """Returns complete list of dicts of possible Catalogue metadata URLs
-           NOTE: we are NOT using the above properties because this will
-           break the OGC W*S Capabilities rules
-        """
-        records = None
-        with CSW() as csw_cat:
-            records = csw_cat.urls_for_uuid(self.uuid)
-        return records
 
     def _get_default_style(self):
         return self.publishing.default_style
@@ -576,13 +539,11 @@ class Layer(models.Model, PermissionLevelMixin):
         if self.resource is None:
             return
         if hasattr(self, "_resource_cache"):
-            with CSW() as csw_cat:
-                self.resource.title = self.title
-                self.resource.abstract = self.abstract
-                self.resource.name= self.name
-                self.resource.metadata_links = [('text/xml', 'TC211', csw_cat.url_for_uuid(self.uuid, 'http://www.isotc211.org/2005/gmd'))]
-                self.resource.keywords = self.keyword_list()
-                Layer.objects.gs_catalog.save(self._resource_cache)
+            self.resource.title = self.title
+            self.resource.abstract = self.abstract
+            self.resource.name= self.name
+            self.resource.keywords = self.keyword_list()
+            Layer.objects.gs_catalog.save(self._resource_cache)
         if self.poc and self.poc.user:
             self.publishing.attribution = str(self.poc.user)
             profile = Contact.objects.get(user=self.poc.user)
@@ -606,23 +567,6 @@ class Layer(models.Model, PermissionLevelMixin):
             self.abstract = 'No abstract provided'
         if self.title == '' or self.title is None:
             self.title = self.name
-
-    def _populate_from_catalogue(self):
-        meta = self.metadata_record()
-        if meta is None:
-            return
-        kw_list = reduce(
-                lambda x, y: x + y["keywords"],
-                meta.identification.keywords,
-                [])
-        kw_list = [l for l in kw_list if l is not None]
-        self.keywords.add(*kw_list)
-        if hasattr(meta.distribution, 'online'):
-            onlineresources = [r for r in meta.distribution.online if r.protocol == "WWW:LINK-1.0-http--link"]
-            if len(onlineresources) == 1:
-                res = onlineresources[0]
-                self.distribution_url = res.url
-                self.distribution_description = res.description
 
     def keyword_list(self):
         keywords_qs = self.keywords.all()
@@ -707,10 +651,10 @@ class ContactRole(models.Model):
 
 def delete_layer(instance, sender, **kwargs): 
     """
-    Removes the layer from GeoServer and Catalogue
+    Removes the layer from GeoServer
     """
     instance.delete_from_geoserver()
-    instance.delete_from_catalogue()
+
 
 def post_save_layer(instance, sender, **kwargs):
     instance._autopopulate()
@@ -722,15 +666,10 @@ def post_save_layer(instance, sender, **kwargs):
 
     instance.save_to_geoserver()
 
-    if kwargs['created']:
-        instance._populate_from_gs()
 
-    instance.save_to_catalogue()
-
-    if kwargs['created']:
-        instance._populate_from_catalogue()
-        instance.save(force_update=True)
-
+def pre_save_layer(instance, sender, **kwargs):
+    instance._populate_from_gs()
 
 signals.pre_delete.connect(delete_layer, sender=Layer)
 signals.post_save.connect(post_save_layer, sender=Layer)
+signals.pre_save.connect(pre_save_layer, sender=Layer)
