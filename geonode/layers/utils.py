@@ -459,9 +459,6 @@ def save(layer, base_file, user, overwrite = True, title=None,
     saved_layer.poc = poc_contact
     saved_layer.metadata_author = author_contact
 
-    # add to CSW catalogue
-    saved_layer.save_to_catalogue()
-
     # Step 11. Set default permissions on the newly created layer
     # FIXME: Do this as part of the post_save hook
     logger.info('>>> Step 11. Setting default permissions for [%s]', name)
