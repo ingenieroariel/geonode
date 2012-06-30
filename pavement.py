@@ -58,37 +58,6 @@ def setup_geoserver(options):
     with pushd('geoserver-geonode-ext'):
         sh("mvn clean install jetty:stop -DskipTests -o")
 
-#FIXME(Ariel): This task is not used at all, should it just be removed?
-@task
-def setup_geonetwork(options):
-    """Fetch the geonetwork.war to use with GeoServer for testing."""
-    war_file = 'geonetwork.war'
-    src_url = 'http://dev.geonode.org/dev-data/synth/%s' % war_file
-    info("geonetwork url: %s" % src_url)
-    # where to download the war files. If changed change also
-    # geoserver-geonode-ext/jetty.xml accordingly
-
-    build_path = path('build')
-    if not build_path.exists():
-        build_path.mkdir()
-
-    dst_url = os.path.join(build_path, war_file)
-
-    webapps = path("build/webapps")
-    if not webapps.exists():
-        webapps.mkdir()
-
-    deployed_url = webapps / "geonetwork"
-
-    if getattr(options, 'clean', False):
-        deployed_url.rmtree()
-
-    grab(src_url, dst_url)
-
-    if not deployed_url.exists():
-        zip_extractall(zipfile.ZipFile(dst_url), deployed_url)
-
-
 @task
 def setup_client(options):
     """
@@ -199,13 +168,6 @@ def package_dir(options):
 def package_geoserver(options):
     """Package GeoServer WAR file with appropriate extensions."""
     geoserver_target.copy(options.deploy.out_dir)
-
-
-
-#FIXME(Ariel): This task is not used at all, should it just be removed?
-def package_geonetwork(options):
-    """Package GeoNetwork WAR file for deployment."""
-    geonetwork_target.copy(options.deploy.out_dir)
 
 
 def package_webapp(options):
