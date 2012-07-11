@@ -3,7 +3,7 @@
   <groupId>org.opengeo</groupId>
   <artifactId>geonode-geoserver-ext</artifactId>
   <packaging>jar</packaging>
-  <version>0.1-SNAPSHOT</version>
+  <version>0.2-SNAPSHOT</version>
   <name>GeoNode GeoServer Extensions</name>
 
   <repositories>
@@ -205,9 +205,8 @@
     </dependency>
   </dependencies>
   <properties>
-    <geotools.version>8-SNAPSHOT</geotools.version>
-    <geoserver.version>2.2-SNAPSHOT</geoserver.version>
-    <geotools.version>8-SNAPSHOT</geotools.version>
+    <geotools.version>8.0-RC2</geotools.version>
+    <geoserver.version>2.2-RC1</geoserver.version>
     <jetty.version>6.1.8</jetty.version>
     <maven.test.search.classdir>true</maven.test.search.classdir>
   </properties>
