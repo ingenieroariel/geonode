@@ -40,11 +40,13 @@
       <groupId>org.geoserver.web</groupId>
       <artifactId>web-security</artifactId>
       <version>${geoserver.version}</version>
-    </dependency>
+  </dependency>
     <dependency>
       <groupId>org.geoserver.community</groupId>
       <artifactId>printing</artifactId>
-      <version>${geoserver.version}</version>
+     <!-- FIXME(Ariel): Bring this back once the artifact is available in the OpenGeo repo -->  
+     <!--  <version>${geoserver.version}</version> -->
+      <version>2.2-SNAPSHOT</version>
       <exclusions>
         <exclusion>
           <groupId>xerces</groupId>
