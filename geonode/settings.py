@@ -297,6 +297,65 @@ CATALOGUE = {
     }
 }
 
+# pycsw configuration
+CSW = {
+    'server': {
+        'home': '.',
+        'mimetype': 'application/xml; charset=UTF-8',
+        'encoding': 'UTF-8',
+        'language': 'en-US',
+        'maxrecords': '10',
+#        'loglevel': 'DEBUG',
+#        'logfile': '/tmp/pycsw.log',
+#        'ogc_schemas_base': 'http://foo',
+#        'federatedcatalogues': 'http://geo.data.gov/geoportal/csw/discovery',
+#        'pretty_print': 'true',
+#        'gzip_compresslevel': '8',
+#        'domainquerytype': 'range',
+#        'domaincounts': 'true',
+        'profiles': 'apiso,dif,fgdc,atom,ebrim',
+    },
+    'metadata:main': {
+        'identification_title': 'GeoNode CSW',
+        'identification_abstract': 'GeoNode CSW',
+        'identification_keywords': 'geonode,catalogue,discovery',
+        'identification_keywords_type': 'theme',
+        'identification_fees': 'None',
+        'identification_accessconstraints': 'None',
+        'provider_name': 'GeoNode',
+        'provider_url': 'https://github.com/azavea/Open-Data-Catalog',
+        'contact_name': 'GeoNode',
+        'contact_position': 'GeoNode',
+        'contact_address': 'TBA',
+        'contact_city': 'City',
+        'contact_stateorprovince': 'State',
+        'contact_postalcode': '12345',
+        'contact_country': 'United States of America',
+        'contact_phone': '+01-xxx-xxx-xxxx',
+        'contact_fax': '+01-xxx-xxx-xxxx',
+        'contact_email': 'admin@example.com',
+        'contact_url': 'https://github.com/azavea/Open-Data-Catalog/',
+        'contact_hours': '0800h - 1600h EST',
+        'contact_instructions': 'During hours of service.  Off on weekends.',
+        'contact_role': 'pointOfContact',
+    },
+    'repository': {
+        'source': 'odc',
+        'mappings': 'geonode/catalogue/mappings.py',
+    },
+    'metadata:inspire': {
+        'enabled': 'false',
+        'languages_supported': 'eng',
+        'default_language': 'eng',
+        'date': '2012-06-11',
+        'gemet_keywords': 'Utility and governmental services',
+        'conformity_service': 'notEvaluated',
+        'contact_name': 'GeoNode',
+        'contact_email': 'admin@example.com',
+        'temp_extent': '2012-06-11/2012-06-11',
+    }
+}
+
 # GeoNode javascript client configuration
 
 # Google Api Key needed for 3D maps / Google Earth plugin

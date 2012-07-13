@@ -36,6 +36,10 @@ urlpatterns = patterns('',
     # Map views
     (r'^maps/', include('geonode.maps.urls')),
 
+
+    # CSW Catalogue views
+    url(r'^catalogue/', include("geonode.catalogue.urls")),
+
     # Social
     (r'^comments/', include('dialogos.urls')),
     (r'^ratings/', include('agon_ratings.urls')),
