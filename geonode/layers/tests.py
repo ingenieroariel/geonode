@@ -357,41 +357,10 @@ class LayersTest(TestCase):
         response = c.get('/data/search/')
         self.failUnlessEqual(response.status_code, 200)
 
-    def test_metadata_search(self):
-        c = Client()
-
-        #test around _metadata_search helper
-        with patch.object(geonode.layers.views,'_layer_search') as mock_ms:
-            result = {
-                'rows' : [{
-                        'uuid' : 1214431  # does not exist
-                        }
-                          ]
-                }
-            mock_ms.return_value = result
-
-            c.get("/data/search/api?q=foo&start=5&limit=10")
-
-            call_args = geonode.layers.views._layer_search.call_args
-            self.assertEqual(call_args[0][0], "foo")
-            self.assertEqual(call_args[0][1], 5)
-            self.assertEqual(call_args[0][2], 10)
-
     def test_search_api(self):
         '''/data/search/api -> Test accessing the data search api JSON'''
         c = Client()
         response = c.get('/data/search/api')
-        self.failUnlessEqual(response.status_code, 200)
-
-    def test_search_detail(self):
-        '''
-        /data/search/detail -> Test accessing the data search detail for a layer
-        Disabled due to reliance on consistent UUIDs across loads.
-        '''
-        layer = Layer.objects.all()[0]
-
-        c = Client()
-        response = c.get('/data/search/detail', {'uuid':layer.uuid})
         self.failUnlessEqual(response.status_code, 200)
 
     def test_search_template(self):

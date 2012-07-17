@@ -20,9 +20,10 @@ from django.utils.translation import ugettext as _
 from django.utils import simplejson as json
 from django.utils.html import escape
 from django.views.decorators.http import require_POST
+from django.db.models import Q
+
 
 from geonode.utils import http_client, _split_query, _get_basic_auth_info
-from geonode.catalogue import get_catalogue
 from geonode.layers.forms import LayerForm, LayerUploadForm, NewLayerUploadForm
 from geonode.layers.models import Layer, ContactRole
 from geonode.utils import default_map_config
@@ -374,8 +375,7 @@ def layer_search_page(request, template='layers/search.html'):
 
 def layer_search(request):
     """
-    handles a basic search for data using the 
-    GeoNetwork catalog.
+    handles a basic search for data
 
     the search accepts: 
     q - general query for keywords across all fields
@@ -419,106 +419,72 @@ def layer_search(request):
       ...
     ]}
     """
-    if request.method == 'GET':
-        params = request.GET
-    elif request.method == 'POST':
-        params = request.POST
-    else:
-        return HttpResponse(status=405)
+    query_string = ''
+    found_entries = Layer.objects.all()
+    result = {}
 
-    # grab params directly to implement defaults as
-    # opposed to panicy django forms behavior.
-    query = params.get('q', '')
-    try:
-        start = int(params.get('start', '0'))
-    except Exception:
-        start = 0
-    try:
-        limit = min(int(params.get('limit', DEFAULT_SEARCH_BATCH_SIZE)),
-                    MAX_SEARCH_BATCH_SIZE)
-    except Exception: 
-        limit = DEFAULT_SEARCH_BATCH_SIZE
+    if ('q' in request.GET) and request.GET['q'].strip():
+        query_string = request.GET['q']
+        
+        entry_query = get_query(query_string, ['title', 'abstract',])
+        
+        found_entries = Layer.objects.filter(entry_query)
 
-    advanced = {}
-    bbox = params.get('bbox', None)
-    if bbox:
-        try:
-            bbox = [float(x) for x in bbox.split(',')]
-            if len(bbox) == 4:
-                advanced['bbox'] =  bbox
-        except Exception:
-            # ignore...
-            pass
+    result['total'] = len(found_entries)
 
-    result = _layer_search(query, start, limit, **advanced)
+    rows = []
 
-    # XXX slowdown here to dig out result permissions
-    for doc in result['rows']: 
-        try: 
-            layer = Layer.objects.get(uuid=doc['uuid'])
-            doc['_local'] = True
-            doc['_permissions'] = {
-                'view': request.user.has_perm('layers.view_layer', obj=layer),
-                'change': request.user.has_perm('layers.change_layer', obj=layer),
-                'delete': request.user.has_perm('layers.delete_layer', obj=layer),
-                'change_permissions': request.user.has_perm('layers.change_layer_permissions', obj=layer),
-            }
-        except Layer.DoesNotExist:
-            doc['_local'] = False
-
+    for layer in found_entries:
+        doc = {}
+        doc['name'] = layer.name
+        doc['abstract'] = layer.abstract
+        doc['detail'] = layer.get_absolute_url()
+        doc['_local'] = True
+        doc['_permissions'] = {
+            'view': request.user.has_perm('layers.view_layer', obj=layer),
+            'change': request.user.has_perm('layers.change_layer', obj=layer),
+            'delete': request.user.has_perm('layers.delete_layer', obj=layer),
+            'change_permissions': request.user.has_perm('layers.change_layer_permissions', obj=layer),
+        }
+        rows.append(doc)
+    result['rows'] = rows
     result['success'] = True
     return HttpResponse(json.dumps(result), mimetype="application/json")
 
 
-def _layer_search(query, start, limit, **kw):
-    keywords = _split_query(query)
-    bbox = getattr(kw, 'bbox', None)
-    catalogue = get_catalogue()
-    result = catalogue.search_records(keywords, start, limit, bbox)
-
-    result['query_info'] = {
-        'start': start,
-        'limit': limit,
-        'q': query
-    }
-
-    if start > 0: 
-        prev = max(start - limit, 0)
-        params = urlencode({'q': query, 'start': prev, 'limit': limit})
-        result['prev'] = reverse('layer_search_page') + '?' + params
-
-    if result['next_page'] > 0:
-        params = urlencode({'q': query, 'start': result['next_page'] - 1, 'limit': limit})
-        result['next'] = reverse('layer_search_page') + '?' + params
+def normalize_query(query_string,
+                    findterms=re.compile(r'"([^"]+)"|(\S+)').findall,
+                    normspace=re.compile(r'\s{2,}').sub):
+    ''' Splits the query string in invidual keywords, getting rid of unecessary spaces
+        and grouping quoted words together.
+        Example:
+        
+        >>> normalize_query('  some random  words "with   quotes  " and   spaces')
+        ['some', 'random', 'words', 'with quotes', 'and', 'spaces']
     
-    return result
+    '''
+    return [normspace(' ', (t[0] or t[1]).strip()) for t in findterms(query_string)] 
 
-
-def layer_search_result_detail(request, template='layers/search_result_snippet.html'):
-    uuid = request.GET.get("uuid")
-    if  uuid is None:
-        return HttpResponse(status=400)
-
-    catalogue = get_catalogue()
-    record = catalogue.get_record(uuid)
-
-    if record is None:
-        return HttpResponse('No metadata found!', status=500)
-
-    try:
-        layer = Layer.objects.get(uuid=uuid)
-        layer_is_remote = False
-    except Layer.DoesNotExist, e:
-        layer = None
-        layer_is_remote = True
-
-    return render_to_response(template, RequestContext(request, {
-        'rec': record,
-        'download_links': record.links['download'],
-        'metadata_links': record.links['metadata'],
-        'layer': layer,
-        'layer_is_remote': layer_is_remote
-    }))
+def get_query(query_string, search_fields):
+    ''' Returns a query, that is a combination of Q objects. That combination
+        aims to search keywords within a model by testing the given search fields.
+    
+    '''
+    query = None # Query to search for every search term        
+    terms = normalize_query(query_string)
+    for term in terms:
+        or_query = None # Query to search for a given term in each field
+        for field_name in search_fields:
+            q = Q(**{"%s__icontains" % field_name: term})
+            if or_query is None:
+                or_query = q
+            else:
+                or_query = or_query | q
+        if query is None:
+            query = or_query
+        else:
+            query = query & or_query
+    return query
 
 
 @require_POST

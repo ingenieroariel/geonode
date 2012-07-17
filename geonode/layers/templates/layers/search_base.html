@@ -23,7 +23,6 @@ Ext.onReady(function(){
         trackSelection: true,
         permalinkURL: '{% url layer_search_page %}',
         searchURL: '{% url layer_search_api %}',
-        layerDetailURL: '{% url layer_search_result_detail %}',
         constraints: [bbox],
         searchParams: {{init_search}}
     });
