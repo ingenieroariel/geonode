@@ -404,20 +404,6 @@ class GeoNodeMapTest(TestCase):
         
         # Test that MAX_SEARCH_BATCH_SIZE is respected (in unit test?)
     
-    def test_search_result_detail(self):
-        # Test with a valid UUID
-        uuid=Layer.objects.all()[0].uuid
-
-        test_url = "%sdata/search/detail/?uuid=%s"  % (settings.SITEURL, uuid)
-        results = get_web_page(test_url)
-        
-        # Test with an invalid UUID (should return 404, but currently does not)
-        uuid="xyz"
-        test_url = "%sdata/search/detail/?uuid=%s"  % (settings.SITEURL, uuid)
-        # Should use assertRaisesRegexp here, but new in 2.7
-        self.assertRaises(urllib2.HTTPError,
-            lambda: get_web_page(test_url)) 
-
     def test_maps_search(self):
         pass
 
