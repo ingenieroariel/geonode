@@ -17,7 +17,6 @@ from django.utils.safestring import mark_safe
 
 from geonode import GeoNodeException
 from geonode.utils import _wms, _user, _password, get_wms, bbox_to_wkt
-from geonode.catalogue import get_catalogue
 from geonode.gs_helpers import cascading_delete
 from geonode.people.models import Contact, Role 
 from geonode.security.models import PermissionLevelMixin
@@ -319,7 +318,7 @@ class Layer(models.Model, PermissionLevelMixin):
         return links
 
     def verify(self):
-        """Makes sure the state of the layer is consistent in GeoServer and Catalogue.
+        """Makes sure the state of the layer is consistent in GeoServer
         """
         
         # Check the layer is in the wms get capabilities record
@@ -331,48 +330,6 @@ class Layer(models.Model, PermissionLevelMixin):
             msg = "WMS Record missing for layer [%s]" % self.typename 
             raise GeoNodeException(msg)
         
-        # Check the layer is in GeoServer's REST API
-        # It would be nice if we could ask for the definition of a layer by name
-        # rather than searching for it
-        #api_url = "%sdata/search/api/?q=%s" % (settings.SITEURL, self.name.replace('_', '%20'))
-        #response, body = http.request(api_url)
-        #api_json = json.loads(body)
-        #api_layer = None
-        #for row in api_json['rows']:
-        #    if(row['name'] == self.typename):
-        #        api_layer = row
-        #if(api_layer == None):
-        #    msg = "API Record missing for layer [%s]" % self.typename
-        #    raise GeoNodeException(msg)
- 
-        # Check the layer is in the GeoNetwork catalog and points back to get_absolute_url
-
-        # Check the layer is in the catalogue and points back to get_absolute_url
-        catalogue = get_catalogue()
-        catalogue_layer = catalogue.get_record(self.uuid)
-
-        if hasattr(catalogue_layer, 'distribution') and hasattr(catalogue_layer.distribution, 'online'):
-            for link in catalogue_layer.distribution.online:
-                if link.protocol == 'WWW:LINK-1.0-http--link':
-                    if(link.url != self.get_absolute_url()):
-                        msg = "Catalogue Layer URL does not match layer URL for layer [%s]" % self.typename
-        else:        
-            msg = "Catalogue Layer URL not found layer [%s]" % self.typename
-
-
-        # if(csw_layer.uri != self.get_absolute_url()):
-        #     msg = "CSW Layer URL does not match layer URL for layer [%s]" % self.typename
-
-        # Visit get_absolute_url and make sure it does not give a 404
-        #logger.info(self.get_absolute_url())
-        #response, body = http.request(self.get_absolute_url())
-        #if(int(response['status']) != 200):
-        #    msg = "Layer Info page for layer [%s] is %d" % (self.typename, int(response['status']))
-        #    raise GeoNodeException(msg)
-
-        #FIXME: Add more checks, for example making sure the title, keywords and description
-        # are the same in every database.
-
     #def maps(self):
     #    """Return a list of all the maps that use this layer"""
     #    local_wms = "%swms" % settings.GEOSERVER_BASE_URL
@@ -469,17 +426,6 @@ class Layer(models.Model, PermissionLevelMixin):
 
     metadata_links = property(_get_metadata_links, _set_metadata_links)
 
-    @property
-    def full_metadata_links(self):
-        """Returns complete list of dicts of possible Catalogue metadata URLs
-           NOTE: we are NOT using the above properties because this will
-           break the OGC W*S Capabilities rules
-        """
-        catalogue = get_catalogue()
-        record = catalogue.get_record(self.uuid)
-        metadata_links = record.links['metadata']
-        return metadata_links
-
     def _get_default_style(self):
         return self.publishing.default_style
 
@@ -559,12 +505,6 @@ class Layer(models.Model, PermissionLevelMixin):
             self.resource.abstract = self.abstract
             self.resource.name= self.name
             self.resource.keywords = self.keyword_list()
-
-            # Get metadata link from csw catalog
-            catalogue = get_catalogue()
-            record = catalogue.get_record(self.uuid)
-            if record is not None:
-                self.metadata_links = record.links['metadata']
             Layer.objects.gs_catalog.save(self._resource_cache)
         if self.poc and self.poc.user:
             self.publishing.attribution = str(self.poc.user)
@@ -589,19 +529,6 @@ class Layer(models.Model, PermissionLevelMixin):
             self.abstract = 'No abstract provided'
         if self.title == '' or self.title is None:
             self.title = self.name
-
-    def _populate_from_catalogue(self):
-        catalogue = get_catalogue()
-        meta = catalogue.get_record(self.uuid)
-        if meta is None:
-            return
-        if hasattr(meta.distribution, 'online'):
-            onlineresources = [r for r in meta.distribution.online if r.protocol == "WWW:LINK-1.0-http--link"]
-            if len(onlineresources) == 1:
-                res = onlineresources[0]
-                self.distribution_url = res.url
-                self.distribution_description = res.description
-
 
     def keyword_list(self):
         keywords_qs = self.keywords.all()
@@ -689,8 +616,6 @@ def delete_layer(instance, sender, **kwargs):
     Removes the layer from GeoServer and Catalogue
     """
     instance.delete_from_geoserver()
-    catalogue = get_catalogue()
-    catalogue.remove_record(instance.uuid)
 
 def post_save_layer(instance, sender, **kwargs):
     instance._autopopulate()
@@ -704,12 +629,6 @@ def post_save_layer(instance, sender, **kwargs):
 
     if kwargs['created']:
         instance._populate_from_gs()
-
-    catalogue = get_catalogue()
-    catalogue.create_record(instance)
-
-    if kwargs['created']:
-        instance._populate_from_catalogue()
         instance.save(force_update=True)
 
 

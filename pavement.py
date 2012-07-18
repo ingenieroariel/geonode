@@ -166,7 +166,6 @@ def setup_client(options):
 @task
 @needs([
     'setup_geoserver',
-    'setup_geonetwork',
     'setup_client',
 ])
 def setup(options):
@@ -397,10 +396,6 @@ def reset():
     """
     sh("rm -rf geonode/development.db")
     sh("rm -rf build/gs_data")
-    # TODO: There should be a better way to clean out GeoNetworks data
-    # Rather than just deleting the entire app
-    sh("rm -rf build/webapps/geonetwork")
-    setup_geonetwork()
 
 @task
 def setup_data():
