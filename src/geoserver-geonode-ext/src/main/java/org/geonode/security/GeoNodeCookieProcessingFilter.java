@@ -72,7 +72,7 @@ public class GeoNodeCookieProcessingFilter extends GeoServerSecurityFilter
         // if we still need to authenticate and we find the cookie, consult GeoNode for
         // an authentication
         final boolean authenticationRequired =
-            !(alreadyAuthenticated || anonymous || !hasPreviouslyValidatedGeoNodeCookie);
+            (alreadyAuthenticated || anonymous || !hasPreviouslyValidatedGeoNodeCookie);
         
         if (authenticationRequired && gnCookie != null) {
             try {
