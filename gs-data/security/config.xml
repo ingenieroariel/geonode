@@ -9,9 +9,10 @@
   <encryptingUrlParams>false</encryptingUrlParams>
   <filterChain>
     <filters name="web" path="/web/**,/gwc/rest/web/**">
-      <filter>geonodeCookieFilter</filter>
       <filter>contextAsc</filter>
+      <filter>geonodeCookieFilter</filter>
       <filter>rememberme</filter>
+      <filter>geonodeAnonymous</filter>
       <filter>anonymous</filter>
       <filter>guiException</filter>
       <filter>interceptor</filter>
@@ -25,24 +26,27 @@
       <filter>formLogout</filter>
     </filters>
     <filters name="rest" path="/rest/**">
-      <filter>geonodeCookieFilter</filter>
       <filter>contextNoAsc</filter>
+      <filter>geonodeCookieFilter</filter>
       <filter>basic</filter>
+      <filter>geonodeAnonymous</filter>
       <filter>anonymous</filter>
       <filter>exception</filter>
       <filter>restInterceptor</filter>
     </filters>
     <filters name="gwc" path="/gwc/rest/**">
-      <filter>geonodeCookieFilter</filter>
       <filter>contextNoAsc</filter>
+      <filter>geonodeCookieFilter</filter>
       <filter>basic</filter>
+      <filter>geonodeAnonymous</filter>
       <filter>exception</filter>
       <filter>restInterceptor</filter>
     </filters>
     <filters name="default" path="/**">
-      <filter>geonodeCookieFilter</filter>
       <filter>contextNoAsc</filter>
+      <filter>geonodeCookieFilter</filter>
       <filter>basic</filter>
+      <filter>geonodeAnonymous</filter>
       <filter>anonymous</filter>
       <filter>exception</filter>
       <filter>interceptor</filter>

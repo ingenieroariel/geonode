@@ -4,6 +4,9 @@
  */
 package org.geonode.security;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.geonode.security.LayersGrantedAuthority.LayerMode;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.ResourceInfo;
@@ -15,6 +18,7 @@ import org.geoserver.security.DataAccessManager;
 import org.geoserver.security.GeoServerRoleService;
 import org.geoserver.security.GeoServerSecurityManager;
 import org.geoserver.security.impl.GeoServerRole;
+import org.geotools.util.logging.Logging;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 
@@ -25,6 +29,7 @@ import org.springframework.security.core.GrantedAuthority;
  * @author Andrea Aime - OpenGeo
  */
 public class GeoNodeDataAccessManager implements DataAccessManager {
+    private static final Logger LOG = Logging.getLogger(GeoNodeDataAccessManager.class);
 
     boolean authenticationEnabled = true;
 
@@ -78,7 +83,10 @@ public class GeoNodeDataAccessManager implements DataAccessManager {
             //throw new NullPointerException("user is null");
             return true;
         }
-
+                
+        if (LOG.isLoggable(Level.FINER))
+            LOG.finer("Checking permissions for " + user +" with authorities " + user.getAuthorities() + " accessing " + resource);
+        
         if (user != null && user.getAuthorities() != null) {
             GrantedAuthority admin = getAdminRole();
             for (GrantedAuthority ga : user.getAuthorities()) {

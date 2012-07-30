@@ -79,7 +79,7 @@ public class GeoNodeCookieProcessingFilter extends GeoServerSecurityFilter
                 Object principal = existingAuth == null ? null : existingAuth.getPrincipal();
                 Collection<? extends GrantedAuthority> authorities = 
                     existingAuth == null ? null : existingAuth.getAuthorities();
-                Authentication authRequest = 
+                Authentication authRequest =
                     new GeoNodeSessionAuthToken(principal, gnCookie, authorities);
                 final Authentication authResult = getSecurityManager().authenticate(authRequest);
                 securityContext.setAuthentication(authResult);
@@ -91,7 +91,7 @@ public class GeoNodeCookieProcessingFilter extends GeoServerSecurityFilter
                     e);
             }
         }
-
+        
         // move forward along the chain
         chain.doFilter(request, response);
     }
