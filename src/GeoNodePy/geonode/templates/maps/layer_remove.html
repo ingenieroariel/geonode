@@ -4,19 +4,16 @@
 {% block title %}{{ layer.typename }} — {{ block.super }}{% endblock %}
 
 {% block main %}
-  <form action="{% url layer_remove layer.typename %}" method="POST">
-    <legend>
-      {% blocktrans with layer.typename as layer_title %}
-        Are you sure you want to remove {{ layer_title }}?
-      {% endblocktrans %}
-    </legend>
-    {% csrf_token %}
-    <input type="hidden" value="{{ layer.typename }}" /> 
-    <div class="form-actions">
-      <input type="submit" value="{% trans "Yes, I am sure" %}" />
-      <a href="{{ layer.get_absolute_url }}" class="btn">{% trans "No, don't remove it" %}</a>
-    </div>
-  </form>
+<h3>{% trans "Are you sure you want to remove"  %} <strong>{{layer.typename}}</strong>?</h3>
+
+<form action="{% url data_remove layer.typename %}" method="POST">
+	{% csrf_token %}
+	<input type="hidden" value="{{layer.typename}}" /> 
+	<input type="submit" value="{% trans "Yes I am sure"  %}" />
+</form>
+<form action="/data/{{layer.typename}}" method="GET">
+    <button type="submit">{% trans "No, don't remove it" %}</button>
+</form>
 {% endblock %}
 
 {% block sidebar %}

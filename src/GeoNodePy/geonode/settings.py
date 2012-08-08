@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # Django settings for the GeoNode project.
-from urllib import urlencode
 import os
 
 #
@@ -122,37 +121,48 @@ INSTALLED_APPS = (
     'geonode.proxy',
 
 )
-
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "null": {
-            "level": "DEBUG",
-            "class": "django.utils.log.NullHandler",
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
         },
-        "console": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-        },
-        "mail_admins": {
-            "level": "ERROR",
-            "class": "django.utils.log.AdminEmailHandler",
-        },
+        'simple': {
+            'format': '%(message)s',        },
     },
-    "loggers": {
-        "django.request": {
-            "handlers": ["mail_admins"],
-            "level": "ERROR",
-            "propagate": True,
+    'handlers': {
+        'null': {
+            'level':'DEBUG',
+            'class':'django.utils.log.NullHandler',
         },
-        "geonode": {
-            "handlers": ["console"],
-            "level": "WARNING",
+        'console':{
+            'level':'DEBUG',
+            'class':'logging.StreamHandler',
+            'formatter': 'simple'
         },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+        }
     },
+    'loggers': {
+        'django': {
+            'handlers':['null'],
+            'propagate': True,
+            'level':'INFO',
+        },
+        'django.request': {
+            'handlers': ['mail_admins'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'geonode': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+    }
 }
-
 
 #
 # Customizations to built in Django settings required by GeoNode
@@ -285,13 +295,13 @@ DEFAULT_MAP_CENTER = (0, 0)
 # maximum zoom is between 12 and 15 (for Google Maps, coverage varies by area)
 DEFAULT_MAP_ZOOM = 0
 
-DEFAULT_LAYER_SOURCE = {
-    "ptype": "gxp_wmscsource",
-    "url": "/geoserver/wms",
-    "restUrl": "/gs/rest"
-}
-
 MAP_BASELAYERS = [{
+    "source": {
+        "ptype": "gxp_wmscsource",
+        "url": GEOSERVER_BASE_URL + "wms",
+        "restUrl": "/gs/rest"
+     }
+  },{
     "source": {"ptype": "gx_olsource"},
     "type":"OpenLayers.Layer",
     "args":["No background"],
@@ -316,6 +326,12 @@ MAP_BASELAYERS = [{
     "group":"background",
     "visibility": False
   }, {
+    "source": {"ptype": "gxp_bingsource"},
+    "name": "AerialWithLabels",
+    "fixed": True,
+    "visibility": False,
+    "group":"background"
+  },{
     "source": {"ptype": "gxp_mapboxsource"},
   }, {
     "source": {"ptype": "gx_olsource"},
