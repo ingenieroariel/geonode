@@ -311,16 +311,74 @@ CATALOGUE = {
         'ENGINE': 'geonode.catalogue.backends.pycsw',
 
         # The FULLY QUALIFIED base url to the CSW instance for this GeoNode
-        'URL': 'http://localhost/catalogue/csw',
+        'URL': '%scatalogue/csw' % SITEURL,
         #'URL': 'http://localhost:8080/geonetwork/srv/en/csw',
         #'URL': 'http://localhost:8080/deegree-csw-demo-3.0.4/services',
     
         # login credentials (for GeoNetwork)
         'USER': 'admin',
         'PASSWORD': 'admin',
+    }
+}
 
-        # is pycsw tightly coupled?
-        'LOCAL': True
+# pycsw settings
+PYCSW = {
+    # is pycsw inline to GeoNode and tightly coupled?
+    'LOCAL': True,
+    # pycsw configuration
+    'CONFIGURATION': {
+        'server': {
+            'home': '.',
+            'encoding': 'UTF-8',
+            'language': LANGUAGE_CODE,
+            'maxrecords': '10',
+            #'loglevel': 'DEBUG',
+            #'logfile': '/tmp/pycsw.log',
+            #'federatedcatalogues': 'http://geo.data.gov/geoportal/csw/discovery',
+            #'pretty_print': 'true',
+            #'domainquerytype': 'range',
+            #'domaincounts': 'true',
+           'profiles': 'apiso,atom,dif,ebrim,fgdc',
+        },
+        'metadata:main': {
+            'identification_title': '%s Catalogue' % SITENAME,
+            'identification_abstract': 'GeoNode is an open source platform that facilitates the creation, sharing, and collaborative use of geospatial data',
+            'identification_keywords': '%s,sdi,catalogue,discovery,metadata,GeoNode' % SITENAME,
+            'identification_keywords_type': 'theme',
+            'identification_fees': 'None',
+            'identification_accessconstraints': 'None',
+            'provider_name': 'Organization Name',
+            'provider_url': SITEURL,
+            'contact_name': 'Lastname, Firstname',
+            'contact_position': 'Position Title',
+            'contact_address': 'Mailing Address',
+            'contact_city': 'City',
+            'contact_stateorprovince': 'Administrative Area',
+            'contact_postalcode': 'Zip or Postal Code',
+            'contact_country': 'Country',
+            'contact_phone': '+xx-xxx-xxx-xxxx',
+            'contact_fax': '+xx-xxx-xxx-xxxx',
+            'contact_email': 'Email Address',
+            'contact_url': 'Contact URL',
+            'contact_hours': 'Hours of Service',
+            'contact_instructions': 'During hours of service. Off on weekends.',
+            'contact_role': 'pointOfContact',
+        },
+        'repository': {
+            'source': 'geonode',
+            'mappings': 'geonode/catalogue/backends/pycsw.py',
+        },
+        'metadata:inspire': {
+            'enabled': 'true',
+            'languages_supported': 'eng,gre',
+            'default_language': 'eng',
+            'date': 'YYYY-MM-DD',
+            'gemet_keywords': 'Utility and governmental services',
+            'conformity_service': 'notEvaluated',
+            'contact_name': 'Organization Name',
+            'contact_email': 'Email Address',
+            'temp_extent': 'YYYY-MM-DD/YYYY-MM-DD',
+        }
     }
 }
 

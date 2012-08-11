@@ -23,9 +23,4 @@ from geonode.catalogue.backends.generic import CatalogueBackend as GenericCatalo
 class CatalogueBackend(GenericCatalogueBackend):
     def __init__(self, *args, **kwargs):
         super(CatalogueBackend, self).__init__(*args, **kwargs)
-        self.catalogue.type = 'pycsw'
-        self.catalogue.formats = ['DIF', 'Dublin Core', 'FGDC', 'TC211']
-
-        self.catalogue.local = True
-        if not settings.CATALOGUE['default']['LOCAL']:
-            self.catalogue.local = False
+        self.catalogue.formats = ['Atom', 'DIF', 'Dublin Core', 'ebRIM', 'FGDC', 'TC211']
