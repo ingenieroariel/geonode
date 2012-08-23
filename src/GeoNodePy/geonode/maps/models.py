@@ -609,7 +609,7 @@ class LayerManager(models.Manager):
     def default_metadata_author(self):
         return self.admin_contact()
 
-    def slurp(self, ignore_errors=True, verbosity=1, console=sys.stdout):
+    def slurp(self, ignore_errors=True, verbosity=1, console=sys.stdout, owner=None):
         """Configure the layers available in GeoServer in GeoNode.
 
            It returns a list of dictionaries with the name of the layer,
@@ -636,6 +636,7 @@ class LayerManager(models.Manager):
                     "typename": "%s:%s" % (workspace.name, resource.name),
                     "title": resource.title or 'No title provided',
                     "abstract": resource.abstract or 'No abstract provided',
+                    "owner": owner,
                     "uuid": str(uuid.uuid4())
                 })
 
@@ -1289,7 +1290,7 @@ class Map(models.Model, PermissionLevelMixin):
         """
         layers = list(self.layer_set.all()) + list(added_layers) #implicitly sorted by stack_order
         server_lookup = {}
-        sources = {'local': settings.DEFAULT_LAYER_SOURCE }
+        sources = {}
 
         def uniqify(seq):
             """
@@ -1435,7 +1436,7 @@ class MapLayerManager(models.Manager):
         """
         layer_cfg = dict(layer)
         for k in ["format", "name", "opacity", "styles", "transparent",
-                  "fixed", "group", "visibility", "title", "source"]:
+                  "fixed", "group", "visibility", "source"]:
             if k in layer_cfg: del layer_cfg[k]
 
         source_cfg = dict(source)
