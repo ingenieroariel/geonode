@@ -64,7 +64,6 @@ dl_cache = "--download-cache=./build"
 dlname = 'geonode.bundle'
 gs_data = "gs-data"
 geoserver_target = path('src/geoserver-geonode-ext/target/geoserver.war')
-geonetwork_target = path('webapps/geonetwork.war')
 def geonode_client_target(): return options.deploy.out_dir / "geonode-client.zip"
 geonode_client_target_war = path('webapps/geonode-client.war')
 
@@ -162,36 +161,8 @@ def setup_geoserver(options):
         sh("mvn clean install -DskipTests")
 
 @task
-def setup_geonetwork(options):
-    """Fetch the geonetwork.war and intermap.war to use with GeoServer for testing."""
-    war_zip_file = options.config.parser.get('geonetwork', 'geonetwork_zip')
-    src_url = str(options.config.parser.get('geonetwork', 'geonetwork_war_url') +  war_zip_file)
-    info("geonetwork url: %s" % src_url)
-    # where to download the war files. If changed change also
-    # src/geoserver-geonode-ext/jetty.xml accordingly
-
-    webapps = path("./webapps")
-    if not webapps.exists():
-        webapps.mkdir()
-
-    dst_url = webapps / war_zip_file
-    dst_war = webapps / "geonetwork.war"
-    deployed_url = webapps / "geonetwork"
-
-    if getattr(options, 'clean', False):
-        deployed_url.rmtree()
-
-    grab(src_url, dst_url)
-
-    if not dst_war.exists():
-        zip_extractall(zipfile.ZipFile(dst_url), webapps)
-    if not deployed_url.exists():
-        zip_extractall(zipfile.ZipFile(dst_war), deployed_url)
-
-@task
 @needs([
     'setup_geoserver',
-    'setup_geonetwork',
     'setup_geonode_client'
 ])
 def setup_webapps(options):
@@ -257,13 +228,6 @@ def package_geoserver(options):
 
 
 @task
-@needs('package_dir', 'setup_geonetwork')
-def package_geonetwork(options):
-    """Package GeoNetwork WAR file for deployment."""
-    geonetwork_target.copy(options.deploy.out_dir)
-
-
-@task
 @needs('package_dir')
 def package_webapp(options):
     """Package (Python, Django) web application and dependencies."""
@@ -279,7 +243,6 @@ def package_webapp(options):
 @needs(
     'build',
     'package_geoserver',
-    'package_geonetwork',
     'package_webapp',
     'package_bootstrap'
 )
@@ -331,7 +294,6 @@ def setup_jetty(source, dest):
 
     deployments = [
         ('geoserver', 'geoserver-geonode-dev.war'),
-        ('geonetwork', 'geonetwork.war'),
         ('media', 'geonode-client.zip')
     ]
 
@@ -351,7 +313,6 @@ def setup_jetty(source, dest):
         "package/devkit/share/pip-0.7.1.tar.gz"
     )
     geoserver_target.copy("package/devkit/share")
-    geonetwork_target.copy("package/devkit/share")
     geonode_client_target().copy("package/devkit/share")
         
 @task
