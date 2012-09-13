@@ -51,7 +51,7 @@ urlpatterns = patterns('',
 
     # Data views
     (r'^data/', include('geonode.layers.urls')),
-    
+
     # Map views
     (r'^maps/', include('geonode.maps.urls')),
 
@@ -81,6 +81,8 @@ urlpatterns = patterns('',
 
     # Catalogue
     (r'^catalogue/', include('geonode.catalogue.urls')),
+
+    (r'^safe/', include('geonode_safe.urls')),
     )
 
 urlpatterns += geonode.proxy.urls.urlpatterns

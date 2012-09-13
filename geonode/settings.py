@@ -144,6 +144,8 @@ INSTALLED_APPS = (
     'geonode.proxy',
     'geonode.security',
     'geonode.catalogue',
+
+    'geonode_safe',
 )
 LOGGING = {
     'version': 1,
