@@ -197,6 +197,10 @@ LOGGING = {
             "handlers": ["console"],
             "level": "ERROR",
         },
+        "safe": {
+            "handlers": ["console"],
+            "level": "ERROR",
+        },
     },
 }
 
