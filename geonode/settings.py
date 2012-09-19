@@ -146,6 +146,7 @@ INSTALLED_APPS = (
     'geonode.catalogue',
 
     'geonode_safe',
+    'leaflet',
 )
 LOGGING = {
     'version': 1,
