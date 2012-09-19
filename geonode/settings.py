@@ -197,7 +197,11 @@ LOGGING = {
             "handlers": ["console"],
             "level": "ERROR",
         },
-        "safe": {
+        "InaSAFE": {
+            "handlers": ["console"],
+            "level": "ERROR",
+        },
+        "geonode_safe": {
             "handlers": ["console"],
             "level": "ERROR",
         },
