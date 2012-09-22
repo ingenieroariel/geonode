@@ -3,6 +3,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>{% block title %}{{ SITENAME }}{% endblock %}</title>
     {% block head %}
       <link href="{{ STATIC_URL }}bootstrap/css/bootstrap.css" rel="stylesheet">
@@ -144,6 +147,8 @@
       </footer>
     </div>
 
+    {% block bottom_script %}
+
     <script src="{{ STATIC_URL }}bootstrap/js/jquery-1.7.1.min.js"></script>
     <script src="{{ STATIC_URL }}bootstrap/js/bootstrap.min.js"></script>
     <script src="{{ STATIC_URL }}datatables/js/jquery.dataTables.min.js"></script>
@@ -202,6 +207,7 @@
       toggle_buttons();
     });
     </script>
+    {% endblock %}
 
     <script type="text/javascript" src="{% url django.views.i18n.javascript_catalog %}"></script>
     <script type="text/javascript" src="{% url lang %}"></script>
