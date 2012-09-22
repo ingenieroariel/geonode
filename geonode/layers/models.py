@@ -30,9 +30,11 @@ from datetime import datetime
 from lxml import etree
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import signals
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.core.urlresolvers import reverse
@@ -51,6 +53,7 @@ from geonode.layers.enumerations import COUNTRIES, ALL_LANGUAGES, \
 
 from geoserver.catalog import Catalog
 from taggit.managers import TaggableManager
+from agon_ratings.models import OverallRating
 
 
 logger = logging.getLogger("geonode.layers.models")
@@ -488,7 +491,7 @@ class Attribute(models.Model):
     objects = AttributeManager()
 
     def __str__(self):
-        return "%s" % self.attribute_label if not None else attribute
+        return "%s" % self.attribute_label if self.attribute_label else self.attribute
 
 class ContactRole(models.Model):
     """
@@ -567,6 +570,8 @@ class Link(models.Model):
 def geoserver_pre_delete(instance, sender, **kwargs): 
     """Removes the layer from GeoServer
     """
+    ct = ContentType.objects.get_for_model(instance)
+    OverallRating.objects.filter(content_type = ct, object_id = instance.id).delete()
     instance.delete_from_geoserver()
 
 
