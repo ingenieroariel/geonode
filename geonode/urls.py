@@ -85,7 +85,7 @@ urlpatterns = patterns('',
     # Catalogue
     (r'^catalogue/', include('geonode.catalogue.urls')),
 
-    (r'^safe/', include('geonode_safe.urls')),
+    (r'^safe/', include('safe_geonode.urls')),
     )
 
 urlpatterns += geonode.proxy.urls.urlpatterns
