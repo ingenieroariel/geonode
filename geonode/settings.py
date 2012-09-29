@@ -145,9 +145,10 @@ INSTALLED_APPS = (
     'geonode.security',
     'geonode.catalogue',
 
-    'geonode_safe',
+    'safe_geonode',
     'leaflet',
 )
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': True,
@@ -199,7 +200,7 @@ LOGGING = {
             "handlers": ["console"],
             "level": "ERROR",
         },
-        "geonode_safe": {
+        "safe_geonode": {
             "handlers": ["console"],
             "level": "ERROR",
         },
