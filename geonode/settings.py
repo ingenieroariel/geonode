@@ -134,7 +134,9 @@ INSTALLED_APPS = (
     'avatar',
     'dialogos',
     'agon_ratings',
+    'pagination',
     'taggit',
+    'taggit_templatetags',
     'south',
 
     # GeoNode internal apps
@@ -144,7 +146,11 @@ INSTALLED_APPS = (
     'geonode.proxy',
     'geonode.security',
     'geonode.catalogue',
+
+    'safe_geonode',
+    'leaflet',
 )
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': True,
@@ -192,6 +198,14 @@ LOGGING = {
             "handlers": ["console"],
             "level": "ERROR",
         },
+        "InaSAFE": {
+            "handlers": ["console"],
+            "level": "ERROR",
+        },
+        "safe_geonode": {
+            "handlers": ["console"],
+            "level": "ERROR",
+        },
     },
 }
 
@@ -219,6 +233,7 @@ MIDDLEWARE_CLASSES = (
     # The setting below makes it possible to serve different languages per
     # user depending on things like headers in HTTP requests.
     'django.middleware.locale.LocaleMiddleware',
+    'pagination.middleware.PaginationMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 )
@@ -290,7 +305,7 @@ NOSE_ARGS = [
 
 SITENAME = "GeoNode"
 
-SITEURL = "http://localhost:8000/"
+SITEURL = "http://ui.dev.geonode.org/"
 
 # GeoServer information
 
@@ -352,6 +367,10 @@ PYCSW = {
             'contact_hours': 'Hours of Service',
             'contact_instructions': 'During hours of service. Off on weekends.',
             'contact_role': 'pointOfContact',
+        },
+        'repository': {
+            'source': 'geonode',
+            'mappings': '/home/geonode/geonode/geonode/catalogue/backends/pycsw_local.py',
         },
         'metadata:inspire': {
             'enabled': 'true',
