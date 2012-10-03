@@ -187,15 +187,13 @@ def package(options):
         justcopy(install_file, out_pkg)
 
         # Package Geoserver's war.
-        geoserver_path = '../geoserver-geonode-ext/target/geoserver.war'
+        geoserver_path = ('../geoserver-geonode-ext/target/'
+                          'geonode-geoserver-ext-0.3.jar')
         geoserver_target = path(geoserver_path)
         geoserver_target.copy(out_pkg)
 
-        # Package (Python, Django) web application and dependencies.
-        # Bundle all the dependencies in a zip-lib package called a pybundle.
-        bundle = out_pkg / 'geonode-webapp.pybundle'
         geonode_dist = path('..') / 'dist' / 'GeoNode-%s.zip' % version
-        sh('pip bundle %s %s' % (bundle, geonode_dist))
+        justcopy(geonode_dist, out_pkg)
 
         # Create a tar file with all files in the output package folder.
         tar = tarfile.open(out_pkg_tar, "w:gz")
