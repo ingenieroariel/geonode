@@ -106,6 +106,8 @@ setup(name='GeoNode',
         "nose>=1.0",
         # translation
         "transifex-client",
+        #safe
+        "safe-geonode",
         ],
       zip_safe=False,
       )
