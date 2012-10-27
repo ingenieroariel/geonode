@@ -7,21 +7,41 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
+        
+        # Adding model 'Style'
+        db.create_table('layers_style', (
+            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+            ('name', self.gf('django.db.models.fields.CharField')(unique=True, max_length=255)),
+            ('sld_title', self.gf('django.db.models.fields.CharField')(max_length=255, null=True, blank=True)),
+            ('sld_body', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
+            ('sld_version', self.gf('django.db.models.fields.CharField')(max_length=12, null=True, blank=True)),
+            ('sld_url', self.gf('django.db.models.fields.CharField')(max_length=1000, null=True)),
+            ('workspace', self.gf('django.db.models.fields.CharField')(max_length=255, null=True, blank=True)),
+        ))
+        db.send_create_signal('layers', ['Style'])
 
-        # Adding field 'Layer.popular_count'
-        db.add_column('layers_layer', 'popular_count', self.gf('django.db.models.fields.IntegerField')(default=0), keep_default=False)
+        # Adding field 'Layer.default_style'
+        db.add_column('layers_layer', 'default_style', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='layer_default_style', null=True, to=orm['layers.Style']), keep_default=False)
 
-        # Adding field 'Layer.share_count'
-        db.add_column('layers_layer', 'share_count', self.gf('django.db.models.fields.IntegerField')(default=0), keep_default=False)
+        # Adding M2M table for field styles on 'Layer'
+        db.create_table('layers_layer_styles', (
+            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
+            ('layer', models.ForeignKey(orm['layers.layer'], null=False)),
+            ('style', models.ForeignKey(orm['layers.style'], null=False))
+        ))
+        db.create_unique('layers_layer_styles', ['layer_id', 'style_id'])
 
 
     def backwards(self, orm):
+        
+        # Deleting model 'Style'
+        db.delete_table('layers_style')
 
-        # Deleting field 'Layer.popular_count'
-        db.delete_column('layers_layer', 'popular_count')
+        # Deleting field 'Layer.default_style'
+        db.delete_column('layers_layer', 'default_style_id')
 
-        # Deleting field 'Layer.share_count'
-        db.delete_column('layers_layer', 'share_count')
+        # Removing M2M table for field styles on 'Layer'
+        db.delete_table('layers_layer_styles')
 
 
     models = {
@@ -40,7 +60,7 @@ class Migration(SchemaMigration):
         },
         'auth.user': {
             'Meta': {'object_name': 'User'},
-            'date_joined': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime(2012, 9, 20, 14, 35, 12, 474684)'}),
+            'date_joined': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime(2012, 10, 17, 1, 46, 7, 453987)'}),
             'email': ('django.db.models.fields.EmailField', [], {'max_length': '75', 'blank': 'True'}),
             'first_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'groups': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['auth.Group']", 'symmetrical': 'False', 'blank': 'True'}),
@@ -48,7 +68,7 @@ class Migration(SchemaMigration):
             'is_active': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'is_staff': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'is_superuser': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'last_login': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime(2012, 9, 20, 14, 35, 12, 474519)'}),
+            'last_login': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime(2012, 10, 17, 1, 46, 7, 453845)'}),
             'last_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'password': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
             'user_permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': "orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'}),
@@ -99,6 +119,7 @@ class Migration(SchemaMigration):
             'data_quality_statement': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'date': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
             'date_type': ('django.db.models.fields.CharField', [], {'default': "'publication'", 'max_length': '255'}),
+            'default_style': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'layer_default_style'", 'null': 'True', 'to': "orm['layers.Style']"}),
             'distribution_description': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'distribution_url': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'edition': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True', 'blank': 'True'}),
@@ -106,6 +127,7 @@ class Migration(SchemaMigration):
             'keywords_region': ('django.db.models.fields.CharField', [], {'default': "'USA'", 'max_length': '3'}),
             'language': ('django.db.models.fields.CharField', [], {'default': "'eng'", 'max_length': '3'}),
             'maintenance_frequency': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True', 'blank': 'True'}),
+            'metadata_uploaded': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'metadata_xml': ('django.db.models.fields.TextField', [], {'default': '\'<gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"/>\'', 'null': 'True', 'blank': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
             'owner': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
@@ -116,6 +138,7 @@ class Migration(SchemaMigration):
             'srid': ('django.db.models.fields.CharField', [], {'default': "'EPSG:4326'", 'max_length': '255'}),
             'store': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
             'storeType': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
+            'styles': ('django.db.models.fields.related.ManyToManyField', [], {'related_name': "'layer_styles'", 'symmetrical': 'False', 'to': "orm['layers.Style']"}),
             'supplemental_information': ('django.db.models.fields.TextField', [], {'default': "u'No information provided'"}),
             'temporal_extent_end': ('django.db.models.fields.DateField', [], {'null': 'True', 'blank': 'True'}),
             'temporal_extent_start': ('django.db.models.fields.DateField', [], {'null': 'True', 'blank': 'True'}),
@@ -134,6 +157,16 @@ class Migration(SchemaMigration):
             'mime': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
             'url': ('django.db.models.fields.TextField', [], {'unique': 'True', 'max_length': '1000'})
+        },
+        'layers.style': {
+            'Meta': {'object_name': 'Style'},
+            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '255'}),
+            'sld_body': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
+            'sld_title': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True', 'blank': 'True'}),
+            'sld_url': ('django.db.models.fields.CharField', [], {'max_length': '1000', 'null': 'True'}),
+            'sld_version': ('django.db.models.fields.CharField', [], {'max_length': '12', 'null': 'True', 'blank': 'True'}),
+            'workspace': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True', 'blank': 'True'})
         },
         'layers.topiccategory': {
             'Meta': {'ordering': "('name',)", 'object_name': 'TopicCategory'},

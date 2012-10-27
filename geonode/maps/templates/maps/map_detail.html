@@ -26,6 +26,7 @@
   <div class="span4">
     <p class="hd-actions pull-right">
       <a href="{% url "map_download" map.pk %}" data-toggle="modal" class="btn btn-large btn-primary strong"><i class="icon-download-alt icon-white"></i> {% trans "Download Data" %}</a>
+      <a href="{% url "map_wmc" map.pk %}" data-toggle="modal" class="btn btn-large btn-primary strong"><i class="icon-download-alt icon-white"></i> {% trans "Download Web Map Context" %}</a>
       <a href="#" class="btn btn-large btn-info strong"><i class="icon-print icon-white"></i> {% trans "Print Map" %}</a>
     </p>
   </div>
@@ -87,7 +88,11 @@
         <ul class="unstyled space">
           {% for layer in map.layer_set.all %}
 	    {% ifnotequal layer.group 'background' %}
-            <li><a href="{% url "layer_detail" layer.name %}">{{ layer.name }}</a></li>
+		{% if layer.local %}
+        	    <li><a href="{% url "layer_detail" layer.name %}">{{ layer.name }}</a></li>
+		{% else %}
+        	    <li>{{ layer.name }}</li>
+		{% endif %}
 	    {% endifnotequal %}
           {% endfor %}
         </ul>
@@ -144,18 +149,8 @@
       </div>
     </div>
   </div>
-  {% with "#" as form_action %}
-      {% include "_permissions_form.html" %}
-  {% endwith %}
+  {% include "_permissions_form.html" %}
 {% endblock %}
-
-{# {% block extra_script %} #}
-{#     <script> #}
-{#     $(function() { #}
-{#       $("#permission_form").submit(perms_submit); #}
-{#     }); #}
-{#   </script> #}
-{# {% endblock %} #}
 
 {% block extra_script %}
 {% if request.user.is_authenticated %}
@@ -180,4 +175,5 @@
    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
  })();
 </script>
+{% include "_permissions_form_js.html" %}
 {% endblock %}
