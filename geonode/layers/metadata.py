@@ -90,9 +90,15 @@ def set_metadata(xml):
         if hasattr(md.identification, 'dataquality'):
             vals['data_quality_statement'] = md.dataquality.lineage
 
-    elif tagname == 'metadata':  # FGDC
-        md = Metadata(exml)
+    # Go one level deeper to see if the second tag is not <Esri>
+    assert len(exml.getchildren()) > 1
+    main_tag = exml.getchildren()[0].tag
 
+    #FIXME: This is a workaround to avoid confusing ESRI metadata
+    # and FGDC. See https://github.com/GeoNode/geonode/issues/474
+    elif tagname == 'metadata' and main_tag != 'Esri':  # FGDC
+
+        md = Metadata(exml)
         vals['csw_typename'] = 'fgdc:metadata'
         vals['csw_schema'] = 'http://www.opengis.net/cat/csw/csdgm'
         vals['spatial_representation_type'] = md.idinfo.citation.citeinfo['geoform']
