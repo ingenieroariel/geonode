@@ -49,11 +49,12 @@ urlpatterns = patterns(
     url(r'^(?P<layername>[^/]*)/remove$', 'layer_remove', name="layer_remove"),
     url(r'^(?P<layername>[^/]*)/replace$', 'layer_replace',
         name="layer_replace"),
+    url(r'^(?P<layername>[^/]*)/tiles/(?P<z>[^/]*)/(?P<x>[^/]*)/(?P<y>[^/]*).png$', 'layer_tiles', name="layer_tiles"),
     url(r'^(?P<layername>[^/]*)/style$', 'layer_style', name="layer_style"),
     url(r'^(?P<layername>[^/]*)/permissions$', 'layer_permissions',
         name='layer_permissions'),
     url(r'^(?P<layername>[^/]*)/edit-check?$', 'feature_edit_check',
-        name="feature_edit_check")
+        name="feature_edit_check"),
     #url(r'^api/batch_permissions/?$', 'batch_permissions',
     #    name='batch_permssions'),
     #url(r'^api/batch_delete/?$', 'batch_delete', name='batch_delete'),

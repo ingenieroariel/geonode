@@ -186,8 +186,8 @@ def layer_detail(request, layername, template='layers/layer_detail.html'):
 
     maplayer = GXPLayer(name = layer.typename, ows_url = settings.GEOSERVER_BASE_URL + "wms", layer_params=json.dumps( layer.attribute_config()))
 
-    layer.srid_url = "http://www.spatialreference.org/ref/" + layer.srid.replace(':','/').lower() + "/"	
-	
+    layer.srid_url = "http://www.spatialreference.org/ref/" + layer.srid.replace(':','/').lower() + "/"
+
     #layer.popular_count += 1
     #layer.save()
 
@@ -694,3 +694,13 @@ def feature_edit_check(request, layername):
     return HttpResponse(
         status=200 if request.user.has_perm('maps.change_layer', obj=layer) and layer.storeType == 'dataStore' else 401
     )
+
+def layer_tiles(request, layername, z, x, y):
+
+    tile_url = ('%sgwc/service/gmaps?' % settings.GEOSERVER_BASE_URL +
+                'layers=%s' % layername +
+                '&zoom=%s&x=%s&y=%s' % (z, x, y) +
+                '&format=image/png8'
+                )
+
+    return HttpResponseRedirect(tile_url)

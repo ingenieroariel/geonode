@@ -337,6 +337,11 @@ class Layer(ResourceBase):
             'layers': self.typename,
             'format': 'image/png8',
             'width': width,
+            'service': 'WMS',
+            'version': '1.1.1',
+            'request': 'GetMap',
+            'srs': 'EPSG:4236',
+            'bbox': self.bbox_string,
         }
         if height is not None:
             params['height'] = height
@@ -346,7 +351,7 @@ class Layer(ResourceBase):
         # with the WMS parser.
         p = "&".join("%s=%s"%item for item in params.items())
 
-        return settings.GEOSERVER_BASE_URL + "wms/reflect?" + p
+        return settings.GEOSERVER_BASE_URL + "gwc/services/wms?" + p
 
 
     def verify(self):
@@ -783,11 +788,8 @@ def geoserver_post_save(instance, sender, **kwargs):
                         )
                        )
 
-    tile_url = ('%sgwc/service/gmaps?' % settings.GEOSERVER_BASE_URL +
-                'layers=%s' % instance.typename +
-                '&zoom={z}&x={x}&y={y}' +
-                '&format=image/png8'
-                )
+    # FIXME(Ariel): Using reverse here encodes the brakets causing an error.
+    tile_url = '/layers/%s/tiles/{z}/{x}/{y}.png' % instance.typename
 
     instance.link_set.get_or_create(url=tile_url,
                        defaults=dict(
