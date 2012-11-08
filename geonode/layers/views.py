@@ -696,11 +696,24 @@ def feature_edit_check(request, layername):
     )
 
 def layer_tiles(request, layername, z, x, y):
-
+    import urllib, os, requests
+    from django.views.static import serve
     tile_url = ('%sgwc/service/gmaps?' % settings.GEOSERVER_BASE_URL +
                 'layers=%s' % layername +
                 '&zoom=%s&x=%s&y=%s' % (z, x, y) +
                 '&format=image/png8'
                 )
+    partial_path = os.path.join( 'layers', layername, z, x, '%s.png' % y)
+    p = os.path.join(settings.MEDIA_ROOT, partial_path)
+    try:
+        os.makedirs(os.path.dirname(p))
+    except:
+        pass
 
-    return HttpResponseRedirect(tile_url)
+    if not os.path.exists(p):
+        r = requests.get(tile_url)
+        binary_image = r.content
+        with open(p, 'w') as f:
+            f.write(binary_image)
+
+    return serve(request, partial_path, document_root=settings.MEDIA_ROOT)
