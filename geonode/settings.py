@@ -417,74 +417,6 @@ PYCSW = {
     }
 }
 
-# GeoNode javascript client configuration
-
-# Where should newly created maps be focused?
-DEFAULT_MAP_CENTER = (0, 0)
-
-# How tightly zoomed should newly created maps be?
-# 0 = entire world;
-# maximum zoom is between 12 and 15 (for Google Maps, coverage varies by area)
-DEFAULT_MAP_ZOOM = 0
-
-MAP_BASELAYERS = [{
-    "source": {
-        "ptype": "gxp_wmscsource",
-        "url": GEOSERVER_BASE_URL + "wms",
-        "restUrl": "/gs/rest"
-     }
-  },{
-    "source": {"ptype": "gxp_olsource"},
-    "type":"OpenLayers.Layer",
-    "args":["No background"],
-    "visibility": False,
-    "fixed": True,
-    "group":"background"
-  }, {
-    "source": {"ptype": "gxp_olsource"},
-    "type":"OpenLayers.Layer.OSM",
-    "args":["OpenStreetMap"],
-    "visibility": False,
-    "fixed": True,
-    "group":"background"
-  }, {
-    "source": {"ptype": "gxp_mapquestsource"},
-    "name":"osm",
-    "group":"background",
-    "visibility": True
-  }, {
-    "source": {"ptype": "gxp_mapquestsource"},
-    "name":"naip",
-    "group":"background",
-    "visibility": False
-  }, {
-    "source": {"ptype": "gxp_bingsource"},
-    "name": "AerialWithLabels",
-    "fixed": True,
-    "visibility": False,
-    "group":"background"
-  },{
-    "source": {"ptype": "gxp_mapboxsource"},
-  }, {
-    "source": {"ptype": "gxp_olsource"},
-    "type":"OpenLayers.Layer.WMS",
-    "group":"background",
-    "visibility": False,
-    "fixed": True,
-    "args":[
-      "bluemarble",
-      "http://maps.opengeo.org/geowebcache/service/wms",
-      {
-        "layers":["bluemarble"],
-        "format":"image/png",
-        "tiled": True,
-        "tilesOrigin": [-20037508.34, -20037508.34]
-      },
-      {"buffer": 0}
-    ]
-
-}]
-
 # GeoNode vector data backend configuration.
 
 #Import uploaded shapefiles into a database such as PostGIS?
@@ -500,10 +432,6 @@ DB_DATASTORE_TYPE = ''
 DB_DATASTORE_NAME = ''
 
 #The name of the store in Geoserver
-
-LEAFLET_CONFIG = {
-    'TILES_URL': 'http://{s}.tile2.opencyclemap.org/transport/{z}/{x}/{y}.png'
-}
 
 # Load more settings from a file called local_settings.py if it exists
 try:

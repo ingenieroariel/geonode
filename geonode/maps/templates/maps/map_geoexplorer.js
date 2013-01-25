@@ -32,8 +32,53 @@ Ext.onReady(function() {
         homeUrl: "{% url home %}",
         localGeoServerBaseUrl: "{{ GEOSERVER_BASE_URL }}",
         localCSWBaseUrl: "{{ CATALOGUE_BASE_URL }}",
-        csrfToken: "{{ csrf_token }}"
-    }, {{ config }});
+        csrfToken: "{{ csrf_token }}",
+        defaultSourceType: "gxp_wmscsource",
+        sources: {
+            local: {
+                url: "{{ GEOSERVER_BASE_URL }}ows",
+                title: "Local GeoServer",
+                ptype: "gxp_wmscsource"
+            },
+            mapquest: {
+                ptype: "gxp_mapquestsource"
+            },
+            osm: {
+                ptype: "gxp_osmsource"
+            },
+            google: {
+                ptype: "gxp_googlesource"
+            },
+            bing: {
+                ptype: "gxp_bingsource"
+            },
+            mapbox: {
+                ptype: "gxp_mapboxsource"
+            },
+            ol: {
+                ptype: "gxp_olsource"
+            }
+        },
+        map: {
+            projection: "EPSG:102113",
+            layers: [{
+                source: "mapquest",
+                title: "MapQuest OpenStreetMap",
+                name: "osm",
+                group: "background"
+            }, {
+                source: "ol",
+                group: "background",
+                fixed: true,
+                type: "OpenLayers.Layer",
+                args: [
+                    "None", {visibility: false}
+                ]
+            }],
+            center: [0, 0],
+            zoom: 2
+        } 
+    });
 
 
     app = new GeoNode.Composer(config);

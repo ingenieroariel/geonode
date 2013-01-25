@@ -29,7 +29,7 @@ from geonode.maps.views import default_map_config
 from geonode.maps.models import Layer
 from geonode.maps.models import Map
 from geonode.documents.models import Document
-from geonode.people.models import Profile 
+from geonode.people.models import Profile
 from geonode.search.search import combined_search_results
 from geonode.search.util import resolve_extension
 from geonode.search.normalizers import apply_normalizers
@@ -49,13 +49,6 @@ logger = logging.getLogger(__name__)
 _extra_context = resolve_extension('extra_context')
 
 DEFAULT_MAPS_SEARCH_BATCH_SIZE = 10
-
-
-def _create_viewer_config():
-    DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS = default_map_config()
-    _map = Map(projection="EPSG:900913", zoom = 1, center_x = 0, center_y = 0)
-    return json.dumps(_map.viewer_json(*DEFAULT_BASE_LAYERS))
-_viewer_config = _create_viewer_config()
 
 
 def search_page(request, **kw):
@@ -94,8 +87,7 @@ def _get_search_context():
     topic_cnts = {}
     for t in topics: topic_cnts[t] = topic_cnts.get(t,0) + 1
     context = {
-        'viewer_config': _viewer_config,
-        "site" : settings.SITEURL,
+        'site' : settings.SITEURL,
         'counts' : counts,
         'users' : User.objects.all(),
         'topics' : topic_cnts,
