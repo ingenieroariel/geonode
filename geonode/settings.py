@@ -155,7 +155,7 @@ INSTALLED_APPS = (
     'avatar',
     'dialogos',
     'agon_ratings',
-    #'notification',
+    'notification',
     'announcements',
     'actstream',
     'relationships',
@@ -321,20 +321,6 @@ SOUTH_TESTS_MIGRATE=False
 # Settings for Social Apps
 AUTH_PROFILE_MODULE = 'people.Profile'
 REGISTRATION_OPEN = False
-
-#
-# Test Settings
-#
-
-# Setting a custom test runner to avoid running the tests for
-# some problematic 3rd party apps
-TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
-
-# Arguments for the test runner
-NOSE_ARGS = [
-      '--nocapture',
-      '--detailed-errors',
-      ]
 
 #
 # GeoNode specific settings
