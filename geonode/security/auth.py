@@ -19,17 +19,17 @@
 #########################################################################
 
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.contenttypes.models import ContentType 
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from geonode.security.models import ANONYMOUS_USERS, AUTHENTICATED_USERS, \
      GenericObjectRoleMapping, Permission, UserObjectRoleMapping
 
 class GranularBackend(ModelBackend):
     """
-    A granular permissions backend that supports row-level 
-    user permissions via roles. 
+    A granular permissions backend that supports row-level
+    user permissions via roles.
     """
-    
+
     supports_object_permissions = True
     supports_anonymous_user = True
 
@@ -46,14 +46,14 @@ class GranularBackend(ModelBackend):
     def get_all_permissions(self, user_obj, obj=None):
         """
         """
-        
+
         if obj is None:
             return ModelBackend.get_all_permissions(self, user_obj)
         else:
             # does not handle objects that are not in the database.
             if not isinstance(obj, models.Model):
                 return set()
-            
+
             if not hasattr(user_obj, '_obj_perm_cache'):
                 # TODO: this cache should really be bounded.
                 # repoze.lru perhaps?
@@ -68,8 +68,8 @@ class GranularBackend(ModelBackend):
 
     def has_perm(self, user_obj, perm, obj=None):
         # in case the user is the owner, he/she has always permissions, otherwise we need to check
-        if user_obj == obj.owner:
-            return True
+        if hasattr(obj, 'owner') and user_obj == obj.owner:
+                return True
         else:
             return perm in self.get_all_permissions(user_obj, obj=obj)
 
@@ -81,8 +81,8 @@ class GranularBackend(ModelBackend):
             opts = model._meta
         key = (opts.app_label, opts.object_name.lower(), obj.id)
         return key
-    
-        
+
+
     def _get_generic_obj_perms(self, generic_roles, obj):
         perms = set()
         ct = ContentType.objects.get_for_model(obj)
@@ -99,9 +99,9 @@ class GranularBackend(ModelBackend):
         obj_perms = set()
         generic_roles = [ANONYMOUS_USERS]
         if not user_obj.is_anonymous():
-            generic_roles.append(AUTHENTICATED_USERS)        
+            generic_roles.append(AUTHENTICATED_USERS)
         obj_perms.update(self._get_generic_obj_perms(generic_roles, obj))
-        
+
         ct = ContentType.objects.get_for_model(obj)
         if not user_obj.is_anonymous():
             for rm in UserObjectRoleMapping.objects.select_related('role', 'role__permissions', 'role__permissions__content_type').filter(object_id=obj.id, object_ct=ct, user=user_obj).all():
@@ -110,32 +110,32 @@ class GranularBackend(ModelBackend):
 
         return obj_perms
 
-        
+
     def objects_with_perm(self, user_obj, perm, ModelType):
         """
-        select identifiers of objects the type specified that the 
+        select identifiers of objects the type specified that the
         user specified has the permission 'perm' for.
         """
 
         if not isinstance(perm, Permission):
             perm = self._permission_for_name(perm)
         ct = ContentType.objects.get_for_model(ModelType)
-        
+
         obj_ids = set()
-    
+
         generic_roles = [ANONYMOUS_USERS]
         if not user_obj.is_anonymous():
             generic_roles.append(AUTHENTICATED_USERS)
             obj_ids.update([x[0] for x in UserObjectRoleMapping.objects.filter(user=user_obj,
                                                                                role__permissions=perm,
                                                                                object_ct=ct).values_list('object_id')])
-        
-        obj_ids.update([x[0] for x in GenericObjectRoleMapping.objects.filter(subject__in=generic_roles, 
+
+        obj_ids.update([x[0] for x in GenericObjectRoleMapping.objects.filter(subject__in=generic_roles,
                                                                               role__permissions=perm,
                                                                               object_ct=ct).values_list('object_id')])
-    
+
         return obj_ids
-        
+
     def _permission_for_name(self, perm):
         ps = perm.index('.')
         app_label = perm[0:ps]
