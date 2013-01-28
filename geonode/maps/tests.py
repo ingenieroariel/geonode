@@ -27,13 +27,14 @@ from django.test.client import Client
 from django.utils import simplejson as json
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.template.loader import render_to_string
+
 from agon_ratings.models import OverallRating
 
 import geonode.maps.models
 import geonode.maps.views
 from geonode.layers.models import Layer
 from geonode.maps.models import Map
-from geonode.utils import default_map_config
 
 
 
@@ -408,6 +409,7 @@ community."
         map_obj = Map.objects.get(id=map_id)
         config_map = map_obj.viewer_json()
         response_config_dict = json.loads(response.context['config'])
+
         self.assertEquals(config_map['about']['abstract'],response_config_dict['about']['abstract'])
         self.assertEquals(config_map['about']['title'],response_config_dict['about']['title'])
 
@@ -415,8 +417,9 @@ community."
         response = c.get(url_no_id)
         self.assertEquals(response.status_code, 200)
         # Config equals to that of the default map
-        config_default = default_map_config()[0]
+        config_default = json.loads(render_to_string('maps/geoexplorer_config.js', {}))
         response_config_dict = json.loads(response.context['config'])
+
         self.assertEquals(config_default['about']['abstract'],response_config_dict['about']['abstract'])
         self.assertEquals(config_default['about']['title'],response_config_dict['about']['title'])
 
@@ -491,7 +494,7 @@ community."
         # Test GET method no COPY and no layer in params
         response = c.get(url)
         self.assertEquals(response.status_code,200)
-        config_default = default_map_config()[0]
+        config_default = json.loads(render_to_string('maps/geoexplorer_config.js', {}))
         response_config_dict = json.loads(response.content)
         self.assertEquals(config_default['about']['abstract'],response_config_dict['about']['abstract'])
         self.assertEquals(config_default['about']['title'],response_config_dict['about']['title'])

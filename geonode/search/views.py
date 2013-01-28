@@ -25,7 +25,6 @@ from django.template import RequestContext
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
-from geonode.maps.views import default_map_config
 from geonode.maps.models import Layer
 from geonode.maps.models import Map
 from geonode.documents.models import Document

@@ -125,13 +125,13 @@ def _get_basic_auth_info(request):
 def batch_permissions(request):
     """
     if not request.user.is_authenticated:
-        return HttpResponse("You must log in to change permissions", status=401) 
+        return HttpResponse("You must log in to change permissions", status=401)
 
     if request.method != "POST":
         return HttpResponse("Permissions API requires POST requests", status=405)
 
     spec = json.loads(request.raw_post_data)
-    
+
     if "layers" in spec:
         lyrs = Layer.objects.filter(pk__in = spec['layers'])
         for lyr in lyrs:
@@ -190,7 +190,7 @@ def batch_permissions(request):
 def batch_delete(request):
     """
     if not request.user.is_authenticated:
-        return HttpResponse("You must log in to delete layers", status=401) 
+        return HttpResponse("You must log in to delete layers", status=401)
 
     if request.method != "POST":
         return HttpResponse("Delete API requires POST requests", status=405)
@@ -260,7 +260,7 @@ def _handle_perms_edit(request, obj):
 
 def _split_query(query):
     """
-    split and strip keywords, preserve space 
+    split and strip keywords, preserve space
     separated quoted blocks.
     """
 
@@ -291,7 +291,7 @@ def bbox_to_wkt(x0, x1, y0, y1, srid="4326"):
 def forward_mercator(lonlat):
     """
         Given geographic coordinates, return a x,y tuple in spherical mercator.
-        
+
         If the lat value is out of range, -inf will be returned as the y value
     """
     x = lonlat[0] * 20037508.34 / 180
@@ -349,7 +349,7 @@ def layer_from_viewer_config(model, layer, source, ordering):
 
 
 class GXPMapBase(object):
-    
+
     def viewer_json(self, *added_layers):
         """
         Convert this map to a nested dictionary structure matching the JSON
@@ -360,17 +360,17 @@ class GXPMapBase(object):
         configuration. These are not persisted; if you want to add layers you
         should use ``.layer_set.create()``.
         """
-        
+
         layers = list(self.layers)
         layers.extend(added_layers)
-        
+
         server_lookup = {}
         sources = { }
 
         def uniqify(seq):
             """
             get a list of unique items from the input sequence.
-            
+
             This relies only on equality tests, so you can use it on most
             things.  If you have a sequence of hashables, list(set(seq)) is
             better.
@@ -385,7 +385,7 @@ class GXPMapBase(object):
         i = 0
         for source in uniqify(configs):
             while str(i) in sources: i = i + 1
-            sources[str(i)] = source 
+            sources[str(i)] = source
             server_lookup[json.dumps(source)] = str(i)
 
         def source_lookup(source):
@@ -399,7 +399,7 @@ class GXPMapBase(object):
             source = source_lookup(src_cfg)
             if source: cfg["source"] = source
             return cfg
-        
+
         config = {
             'id': self.id,
             'about': {
@@ -410,37 +410,31 @@ class GXPMapBase(object):
             'sources': sources,
             'map': {
                 'layers': [layer_config(l) for l in layers],
-                'center': [self.center_x, self.center_y],
-                'projection': self.projection,
-                'zoom': self.zoom
             }
         }
 
-        # Mark the last added layer as selected - important for data page
-        config["map"]["layers"][len(layers)-1]["selected"] = True
+        if len(layers) > 0:
+            # Mark the last added layer as selected - important for data page
+            config["map"]["layers"][len(layers)-1]["selected"] = True
 
         config["map"].update(_get_viewer_projection_info(self.projection))
 
         return config
-    
-    
+
+
 class GXPMap(GXPMapBase):
-    
-    def __init__(self, projection=None, title=None, abstract=None, 
+
+    def __init__(self, projection=None, title=None, abstract=None,
                  center_x = None, center_y = None, zoom = None):
         self.id = 0
         self.projection = projection
         self.title = title or DEFAULT_TITLE
         self.abstract = abstract or DEFAULT_ABSTRACT
-        _DEFAULT_MAP_CENTER = forward_mercator(settings.DEFAULT_MAP_CENTER)
-        self.center_x = center_x if center_x is not None else _DEFAULT_MAP_CENTER[0]
-        self.center_y = center_y if center_y is not None else _DEFAULT_MAP_CENTER[1]
-        self.zoom = zoom if zoom is not None else settings.DEFAULT_MAP_ZOOM
         self.layers = []
 
 
 class GXPLayerBase(object):
-    
+
     def source_config(self):
         """
         Generate a dict that can be serialized to a GXP layer source
@@ -467,7 +461,7 @@ class GXPLayerBase(object):
         """
         try:
             cfg = json.loads(self.layer_params)
-        except Exception: 
+        except Exception:
             cfg = dict()
 
         if self.format: cfg['format'] = self.format
@@ -481,7 +475,7 @@ class GXPLayerBase(object):
         cfg["visibility"] = self.visibility
 
         return cfg
-    
+
 
 class GXPLayer(GXPLayerBase):
     '''GXPLayer represents an object to be included in a GXP map.
@@ -499,32 +493,7 @@ class GXPLayer(GXPLayerBase):
         self.layer_params = ""
         self.source_params = ""
         for k in kw:
-            setattr(self,k,kw[k])        
-
-
-def default_map_config():
-    _DEFAULT_MAP_CENTER = forward_mercator(settings.DEFAULT_MAP_CENTER)
-
-    _default_map = GXPMap(
-        title=DEFAULT_TITLE, 
-        abstract=DEFAULT_ABSTRACT,
-        projection="EPSG:900913",
-        center_x=_DEFAULT_MAP_CENTER[0],
-        center_y=_DEFAULT_MAP_CENTER[1],
-        zoom=settings.DEFAULT_MAP_ZOOM
-    )
-    def _baselayer(lyr, order):
-        return layer_from_viewer_config(
-            GXPLayer,
-            layer = lyr,
-            source = lyr["source"],
-            ordering = order
-        )
-
-    DEFAULT_BASE_LAYERS = [_baselayer(lyr, idx) for idx, lyr in enumerate(settings.MAP_BASELAYERS)]
-    DEFAULT_MAP_CONFIG = _default_map.viewer_json(*DEFAULT_BASE_LAYERS)
-
-    return DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS
+            setattr(self,k,kw[k])
 
 
 _viewer_projection_lookup = {
@@ -546,17 +515,17 @@ def _get_viewer_projection_info(srid):
     return _viewer_projection_lookup.get(srid, {})
 
 
-def resolve_object(request, model, query, permission=None, 
+def resolve_object(request, model, query, permission=None,
                    permission_required=True, permission_msg=None):
     '''Resolve an object using the provided query and check the optional
     permission. Model views should wrap this function as a shortcut.
-    
+
     query - a dict to use for querying the model
     permission - an optional permission to check
     permission_required - if False, allow get methods to proceed
     permission_msg - optional message to use in 403
     '''
-    
+
     obj = get_object_or_404(model, **query)
     allowed = True
     if permission:

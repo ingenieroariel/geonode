@@ -47,7 +47,6 @@ from django.shortcuts import get_object_or_404
 from geonode.utils import http_client, _split_query, _get_basic_auth_info
 from geonode.layers.forms import LayerForm, LayerUploadForm, NewLayerUploadForm, LayerAttributeForm
 from geonode.layers.models import Layer, ContactRole, Attribute, TopicCategory
-from geonode.utils import default_map_config
 from geonode.utils import GXPLayer
 from geonode.utils import GXPMap
 from geonode.layers.utils import save
@@ -186,18 +185,17 @@ def layer_detail(request, layername, template='layers/layer_detail.html'):
 
     maplayer = GXPLayer(name = layer.typename, ows_url = settings.GEOSERVER_BASE_URL + "wms", layer_params=json.dumps( layer.attribute_config()))
 
-    layer.srid_url = "http://www.spatialreference.org/ref/" + layer.srid.replace(':','/').lower() + "/"	
-	
+    layer.srid_url = "http://www.spatialreference.org/ref/" + layer.srid.replace(':','/').lower() + "/"
+
     #layer.popular_count += 1
     #layer.save()
 
     # center/zoom don't matter; the viewer will center on the layer bounds
     map_obj = GXPMap(projection="EPSG:900913")
-    DEFAULT_BASE_LAYERS = default_map_config()[1]
 
     return render_to_response(template, RequestContext(request, {
         "layer": layer,
-        "viewer": json.dumps(map_obj.viewer_json(* (DEFAULT_BASE_LAYERS + [maplayer]))),
+        "viewer": json.dumps(map_obj.viewer_json(* [maplayer])),
         "permissions_json": _perms_info_json(layer, LAYER_LEV_NAMES),
     }))
 
@@ -432,7 +430,6 @@ def layer_batch_download(request):
 
 
 def layer_search_page(request, template='layers/layer_search.html'):
-    DEFAULT_BASE_LAYERS = default_map_config()[1]
     # for non-ajax requests, render a generic search page
 
     if request.method == 'GET':
@@ -446,7 +443,7 @@ def layer_search_page(request, template='layers/layer_search.html'):
 
     return render_to_response(template, RequestContext(request, {
         'init_search': json.dumps(params or {}),
-        'viewer_config': json.dumps(map_obj.viewer_json(*DEFAULT_BASE_LAYERS)),
+        'viewer_config': json.dumps(map_obj.viewer_json(*[])),
         "site" : settings.SITEURL,
         "search_api": reverse("layer_search_api"),
         "search_action": reverse("layer_search_page"),

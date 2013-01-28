@@ -31,6 +31,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
+from django.template.loader import render_to_string
 from django.conf import settings
 from django.template import RequestContext
 from django.utils.translation import ugettext as _
@@ -45,10 +46,9 @@ from geonode.maps.models import Map, MapLayer
 from geonode.utils import forward_mercator
 from geonode.utils import DEFAULT_TITLE
 from geonode.utils import DEFAULT_ABSTRACT
-from geonode.utils import default_map_config
 from geonode.utils import resolve_object
 from geonode.maps.forms import MapForm
-from geonode.people.models import Profile 
+from geonode.people.models import Profile
 from geonode.security.models import AUTHENTICATED_USERS, ANONYMOUS_USERS
 from geonode.security.views import _perms_info
 
@@ -133,10 +133,10 @@ def map_detail(request, mapid, template='maps/map_detail.html'):
     The view that show details of each map
     '''
     map_obj = _resolve_map(request, mapid, 'maps.view_map', _PERMISSION_MSG_VIEW)
-	
+
     map_obj.popular_count += 1
     map_obj.save()
-	
+
     config = map_obj.viewer_json()
     config = json.dumps(config)
     layers = MapLayer.objects.filter(map=map_obj.id)
@@ -200,12 +200,13 @@ def map_remove(request, mapid, template='maps/map_remove.html'):
 
 def map_embed(request, mapid=None, template='maps/map_embed.html'):
     if mapid is None:
-        config = default_map_config()[0]
+        config = new_map_config(request)
     else:
         map_obj = _resolve_map(request, mapid, 'maps.view_map')
-        config = map_obj.viewer_json()
+        config = json.dumps(map_obj.viewer_json())
+
     return render_to_response(template, RequestContext(request, {
-        'config': json.dumps(config)
+        'config': config
     }))
 
 
@@ -308,10 +309,15 @@ def new_map_config(request):
     default map configuration is used.  If copy is specified
     and the map specified does not exist a 404 is returned.
     '''
-    DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS = default_map_config()
+    if request.method == 'GET':
+        params = request.GET
+    elif request.method == 'POST':
+        params = request.POST
+    else:
+        return HttpResponse(status=405)
 
-    if request.method == 'GET' and 'copy' in request.GET:
-        mapid = request.GET['copy']
+    if 'copy' in params:
+        mapid = params['copy']
         map_obj = _resolve_map(request, mapid, 'maps.view_map')
 
         map_obj.abstract = DEFAULT_ABSTRACT
@@ -319,75 +325,70 @@ def new_map_config(request):
         if request.user.is_authenticated(): map_obj.owner = request.user
         config = map_obj.viewer_json()
         del config['id']
+        return json.dumps(config)
+
+    if 'layer' not in params:
+        return render_to_string('maps/geoexplorer_config.js', {})
     else:
-        if request.method == 'GET':
-            params = request.GET
-        elif request.method == 'POST':
-            params = request.POST
-        else:
-            return HttpResponse(status=405)
+        bbox = None
+        map_obj = Map(projection="EPSG:900913")
+        layers = []
+        for layer_name in params.getlist('layer'):
+            try:
+                layer = Layer.objects.get(typename=layer_name)
+            except ObjectDoesNotExist:
+                # bad layer, skip
+                continue
 
-        if 'layer' in params:
-            bbox = None
-            map_obj = Map(projection="EPSG:900913")
-            layers = []
-            for layer_name in params.getlist('layer'):
-                try:
-                    layer = Layer.objects.get(typename=layer_name)
-                except ObjectDoesNotExist:
-                    # bad layer, skip
-                    continue
+            if not request.user.has_perm('maps.view_layer', obj=layer):
+                # invisible layer, skip inclusion
+                continue
 
-                if not request.user.has_perm('maps.view_layer', obj=layer):
-                    # invisible layer, skip inclusion
-                    continue
+            layer_bbox = layer.bbox
+            # assert False, str(layer_bbox)
+            if bbox is None:
+                bbox = list(layer_bbox[0:4])
+            else:
+                bbox[0] = min(bbox[0], layer_bbox[0])
+                bbox[1] = max(bbox[1], layer_bbox[1])
+                bbox[2] = min(bbox[2], layer_bbox[2])
+                bbox[3] = max(bbox[3], layer_bbox[3])
 
-                layer_bbox = layer.bbox
-                # assert False, str(layer_bbox)
-                if bbox is None:
-                    bbox = list(layer_bbox[0:4])
-                else:
-                    bbox[0] = min(bbox[0], layer_bbox[0])
-                    bbox[1] = max(bbox[1], layer_bbox[1])
-                    bbox[2] = min(bbox[2], layer_bbox[2])
-                    bbox[3] = max(bbox[3], layer_bbox[3])
+            layers.append(MapLayer(
+                map = map_obj,
+                name = layer.typename,
+                ows_url = settings.GEOSERVER_BASE_URL + "wms",
+                layer_params=json.dumps( layer.attribute_config()),
+                visibility = True
+            ))
 
-                layers.append(MapLayer(
-                    map = map_obj,
-                    name = layer.typename,
-                    ows_url = settings.GEOSERVER_BASE_URL + "wms",
-                    layer_params=json.dumps( layer.attribute_config()),
-                    visibility = True
-                ))
+        if bbox is not None:
+            minx, maxx, miny, maxy = [float(c) for c in bbox]
+            x = (minx + maxx) / 2
+            y = (miny + maxy) / 2
 
-            if bbox is not None:
-                minx, maxx, miny, maxy = [float(c) for c in bbox]
-                x = (minx + maxx) / 2
-                y = (miny + maxy) / 2
+            center = forward_mercator((x, y))
+            if center[1] == float('-inf'):
+                center[1] = 0
 
-                center = forward_mercator((x, y))
-                if center[1] == float('-inf'):
-                    center[1] = 0
+            if maxx == minx:
+                width_zoom = 15
+            else:
+                width_zoom = math.log(360 / (maxx - minx), 2)
+            if maxy == miny:
+                height_zoom = 15
+            else:
+                height_zoom = math.log(360 / (maxy - miny), 2)
 
-                if maxx == minx:
-                    width_zoom = 15
-                else:
-                    width_zoom = math.log(360 / (maxx - minx), 2)
-                if maxy == miny:
-                    height_zoom = 15
-                else:
-                    height_zoom = math.log(360 / (maxy - miny), 2)
-
-                map_obj.center_x = center[0]
-                map_obj.center_y = center[1]
-                map_obj.zoom = math.ceil(min(width_zoom, height_zoom))
+            map_obj.center_x = center[0]
+            map_obj.center_y = center[1]
+            map_obj.zoom = math.ceil(min(width_zoom, height_zoom))
 
 
-            config = map_obj.viewer_json(*(DEFAULT_BASE_LAYERS + layers))
-            config['fromLayer'] = True
-        else:
-            config = DEFAULT_MAP_CONFIG
-    return json.dumps(config)
+        config = map_obj.viewer_json(*layers)
+        config['fromLayer'] = True
+
+        return json.dumps(config)
 
 
 #### MAPS DOWNLOAD ####
@@ -416,7 +417,7 @@ def map_download(request, mapid, template='maps/map_download.html'):
             if(len([l for l in j_layers if l == j_layer]))>1:
                 j_layers.remove(j_layer)
         mapJson = json.dumps(j_map)
-        
+
         resp, content = http_client.request(url, 'POST', body=mapJson)
 
         if resp.status not in (400, 404, 417):
