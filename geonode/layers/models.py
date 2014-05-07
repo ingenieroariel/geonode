@@ -200,13 +200,42 @@ class Layer(ResourceBase):
         if self.is_vector():
             datasource = DataSource(base_file.file.path)
             layer = datasource[0]
-            bbox_x0, bbox_x1, bbox_y0, bbox_y1 = layer.extent.tuple
+            bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
+
+            # Set vector bounding box.
             self.set_bounds_from_bbox([bbox_x0, bbox_x1, bbox_y0, bbox_y1])
         else:
             gtif = gdal.Open(base_file.file.path)
-            bbox_x0, resx, bbox_x1, bbox_y0, bbox_y1, resy = gtif.GetGeoTransform()
+            gt= gtif.GetGeoTransform()
+            cols = gtif.RasterXSize
+            rows = gtif.RasterYSize
+
+            ext=[]
+            xarr=[0,cols]
+            yarr=[0,rows]
+
+            # Get the extent.
+            for px in xarr:
+                for py in yarr:
+                    x=gt[0]+(px*gt[1])+(py*gt[2])
+                    y=gt[3]+(px*gt[4])+(py*gt[5])
+                    ext.append([x,y])
+
+                yarr.reverse()
+
+            # ext has four corner points, get a bbox from them.
+            bbox_x0 = ext[0][0]
+            bbox_y0 = ext[0][1]
+            bbox_x1 = ext[2][0]
+            bbox_y1 = ext[2][1]
+
+            # Set raster bounding box.
             self.set_bounds_from_bbox([bbox_x0, bbox_x1, bbox_y0, bbox_y1])
+
+            # Set raster resolution.
+            __, resx, __, __, __, resy = gt
             self.resolution = '%s %s' % (resx, resy)
+
 
     def maps(self):
         from geonode.maps.models import MapLayer
