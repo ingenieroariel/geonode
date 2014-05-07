@@ -22,6 +22,8 @@ import logging
 
 from datetime import datetime
 
+from osgeo import gdal
+
 from django.db import models
 from django.db.models import signals
 from django.db import connections
@@ -94,7 +96,9 @@ class Layer(ResourceBase):
     storeType = models.CharField(max_length=128)
     name = models.CharField(max_length=128)
     typename = models.CharField(max_length=128, unique=True, null=True, blank=True)
-    table_name = models.CharField(max_length=128, unique=True, null=True, blank=True)
+
+    table_name = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    resolution = models.CharField(max_length=255, null=True, blank=True)
 
     popular_count = models.IntegerField(default=0)
     share_count = models.IntegerField(default=0)
@@ -190,10 +194,19 @@ class Layer(ResourceBase):
         """Sets the spatial extent from an ogr datasource file"""
         base_file = self.get_base_file()
 
-        if self.is_vector() and base_file is not None:
+        if base_file is None:
+            return
+
+        if self.is_vector():
             datasource = DataSource(base_file.file.path)
             layer = datasource[0]
-            self.set_bounds_from_bbox(layer.extent.tuple)
+            bbox_x0, bbox_x1, bbox_y0, bbox_y1 = layer.extent.tuple
+            self.set_bounds_from_bbox([bbox_x0, bbox_x1, bbox_y0, bbox_y1])
+        else:
+            gtif = gdal.Open(base_file.file.path)
+            bbox_x0, resx, bbox_x1, bbox_y0, bbox_y1, resy = gtif.GetGeoTransform()
+            self.set_bounds_from_bbox([bbox_x0, bbox_x1, bbox_y0, bbox_y1])
+            self.resolution = '%s %s' % (resx, resy)
 
     def maps(self):
         from geonode.maps.models import MapLayer
