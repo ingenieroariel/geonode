@@ -105,6 +105,9 @@ setup(name='GeoNode',
         "django-downloadview==1.2",
         "django-tastypie==0.11.0",
         "django-polymorphic==0.5.3",
+        "django-leaflet==0.13.2",
+        "django-geojson==2.4.0",
+        "django-shapes==0.2.0",
         #catalogue
         "pycsw==1.8.0",
         # setup
