@@ -168,8 +168,8 @@ GEONODE_APPS = (
     'geonode.documents',
 
     # GeoServer Apps
-    'geonode.geoserver',
-    'geonode.upload',
+    #'geonode.geoserver',
+    #'geonode.upload',
 
     # GeoNode Contrib Apps
     'geonode.contrib.services',
@@ -298,7 +298,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     # The context processor below adds things like SITEURL
     # and GEOSERVER_BASE_URL to all pages that use a RequestContext
     'geonode.context_processors.resource_urls',
-    'geonode.geoserver.context_processors.geoserver_urls',
+    #'geonode.geoserver.context_processors.geoserver_urls',
 )
 
 MIDDLEWARE_CLASSES = (
