@@ -19,14 +19,13 @@
 
         {% if layer.get_tiles_url %}
         L.tileLayer("{{ layer.get_tiles_url|safe }}",{}).addTo(detail.map);
-
         {% endif %}
     }, false);
 
     function zoom_to_box(map, bbox){
         var bounds = [
-            [bbox[2], bbox[0]],
-            [bbox[3], bbox[1]]
+            [bbox[1], bbox[0]],
+            [bbox[3], bbox[2]]
         ];
         map.fitBounds(bounds);
     }

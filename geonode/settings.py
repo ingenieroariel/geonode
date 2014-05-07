@@ -639,6 +639,16 @@ TASTYPIE_DEFAULT_FORMATS = ['json']
 # gravatar settings
 AUTO_GENERATE_AVATAR_SIZES = (20,32,80,100,140,200)
 
+LEAFLET_CONFIG = {
+'TILES': [
+    # Find tiles at:
+    # http://leaflet-extras.github.io/leaflet-providers/preview/
+
+    # Stamen toner lite.
+    ('Toner Lite', 'http://{s}.tile.stamen.com/toner-lite/{z}/{x}/{y}.png', 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'),
+]
+}
+
 # Load more settings from a file called local_settings.py if it exists
 try:
     from local_settings import *
