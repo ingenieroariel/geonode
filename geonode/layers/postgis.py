@@ -61,11 +61,6 @@ def get_model_field_name(field):
 
     return field
 
-def get_gisfile_extent(gisfile):
-    """Gets the spatial extent from an ogr datasource file"""
-    datasource = DataSource(gisfile)
-    layer = datasource[0]
-    return layer.extent.tuple
 
 def transform_geom(wkt, srid_in, srid_out):
     
@@ -241,6 +236,7 @@ def file2pgtable(infile, table_name, srid=4326):
     return {
         "result" : "success",
         "geotype" : geo_type,
+        "table_name": table_name,
         "nbObj": layer.num_feat,
     }
 

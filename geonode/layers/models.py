@@ -27,6 +27,7 @@ from django.db.models import signals
 from django.db import connections
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.contrib.gis.gdal import DataSource
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
 from django.core.urlresolvers import reverse
@@ -93,6 +94,7 @@ class Layer(ResourceBase):
     storeType = models.CharField(max_length=128)
     name = models.CharField(max_length=128)
     typename = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    table_name = models.CharField(max_length=128, unique=True, null=True, blank=True)
 
     popular_count = models.IntegerField(default=0)
     share_count = models.IntegerField(default=0)
@@ -176,15 +178,22 @@ class Layer(ResourceBase):
     LEVEL_WRITE = 'layer_readwrite'
     LEVEL_ADMIN = 'layer_admin'
 
-    def table_name(self):
-        return 'geonode__%s' % self.name
-
     def save_to_postgis(self):
-        from geonode.layers.postgis import file2pgtable
         base_file = self.get_base_file()
-        if base_file is not None and base_file.name == 'shp':
-            infile = base_file.file.path
-            file2pgtable(infile, self.table_name())
+
+        if self.is_vector() and base_file is not None:
+            from geonode.layers.postgis import file2pgtable
+            output = file2pgtable(base_file.file.path, self.table_name)
+
+
+    def set_extent(self):
+        """Sets the spatial extent from an ogr datasource file"""
+        base_file = self.get_base_file()
+
+        if self.is_vector() and base_file is not None:
+            datasource = DataSource(base_file.file.path)
+            layer = datasource[0]
+            self.set_bounds_from_bbox(layer.extent.tuple)
 
     def maps(self):
         from geonode.maps.models import MapLayer
@@ -292,6 +301,18 @@ def pre_save_layer(instance, sender, **kwargs):
     if instance.typename is None:
         # Set a sensible default for the typename
         instance.typename = 'geonode:%s' % instance.name
+
+    base_file = instance.get_base_file()
+
+    if base_file is not None:
+        extension = '.%s' % base_file.name
+        if extension in vec_exts:
+            instance.table_name = 'geonode__%s' % instance.name
+            instance.storeType = 'dataStore'
+        elif extension in cov_exts:
+            instance.storeType = 'coverageStore'
+
+    instance.set_extent()
 
     # If an XML metadata document is uploaded,
     # parse the XML metadata and update uuid and URLs as per the content model
