@@ -24,6 +24,7 @@ from datetime import datetime
 
 from django.db import models
 from django.db.models import signals
+from django.db import connections
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -175,6 +176,15 @@ class Layer(ResourceBase):
     LEVEL_WRITE = 'layer_readwrite'
     LEVEL_ADMIN = 'layer_admin'
 
+    def table_name(self):
+        return 'geonode__%s' % self.name
+
+    def save_to_postgis(self):
+        from geonode.layers.postgis import file2pgtable
+        base_file = self.get_base_file()
+        if base_file is not None and base_file.name == 'shp':
+            infile = base_file.file.path
+            file2pgtable(infile, self.table_name())
 
     def maps(self):
         from geonode.maps.models import MapLayer
@@ -341,6 +351,9 @@ def post_save_layer(instance, sender, **kwards):
     instance.set_missing_info()
 
     xml_files = instance.layerfile_set.filter(name='xml')
+
+    if 'datastore' in connections:
+        instance.save_to_postgis()
 
     # If an XML metadata document is uploaded,
     # parse the XML metadata and update uuid and URLs as per the content model
