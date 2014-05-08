@@ -193,14 +193,14 @@ def file2pgtable(infile, table_name, srid=4326):
     sql += ','.join(fields)
     sql += ');'
 
-    sql +=  "SELECT AddGeometryColumn('public','%s','the_geom',%d,'%s',%d);" % (
+    sql +=  "SELECT AddGeometryColumn('public','%s','geom',%d,'%s',%d);" % (
                 table_name, srid, geo_type, coord_dim)
 
     sql += 'END;'
 
     # la table est créée il faut maintenant injecter les données
-    fieldnames.append('the_geom')
-    mapping['the_geom'] = geo_type
+    fieldnames.append('geom')
+    mapping['geom'] = geo_type
 
     # Running the sql
     execute(sql)

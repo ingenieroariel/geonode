@@ -1,4 +1,5 @@
 {% load leaflet_tags %}
+{% load geojson_tags %}
 
 {% leaflet_js %}
 {% leaflet_css %}
@@ -19,6 +20,10 @@
 
         {% if layer.get_tiles_url %}
         L.tileLayer("{{ layer.get_tiles_url|safe }}",{}).addTo(detail.map);
+        {% endif %}
+
+        {% if layer.table_name %}
+        L.geoJson({{ layer.data_objects|geojsonfeature|safe}}).addTo(detail.map);
         {% endif %}
     }, false);
 

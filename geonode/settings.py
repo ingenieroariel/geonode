@@ -201,6 +201,7 @@ INSTALLED_APPS = (
     'friendlytagloader',
     'geoexplorer',
     'leaflet',
+    'djgeojson',
     'django_extensions',
     #'haystack',
 

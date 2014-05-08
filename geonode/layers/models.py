@@ -132,6 +132,13 @@ class Layer(ResourceBase):
         else:
             return settings.OGC_SERVER['default']['LOCATION'] + "wms"
 
+    def data_objects(self):
+        model_name = self.table_name.replace('_', ' ').title().replace(' ', '')
+        dyn_models = __import__('geonode.dynamic.models', globals(), locals(), [model_name,], 0)
+        TheModel = getattr(dyn_models, model_name)
+        return TheModel.objects.using('datastore')
+
+
     def get_base_file(self):
         base_exts = [x.replace('.','') for x in cov_exts + vec_exts]
         base_files = self.layerfile_set.filter(name__in=base_exts)
