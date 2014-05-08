@@ -19,9 +19,11 @@
 # along with Opencarto.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from django import db
 from django.db import connections
 from django.db.utils import DatabaseError
 from django.contrib.gis.gdal import DataSource, SpatialReference, OGRGeometry
+from django.contrib.gis.utils import LayerMapping
 from django.utils.text import slugify
 import psycopg2
 
@@ -144,8 +146,16 @@ def file2pgtable(infile, table_name, srid=4326):
             infile.endswith('.TAB') or infile.endswith('.tab')
             or infile.endswith('.MIF') or infile.endswith('.mif')):
         geo_type = 'POLYGON'
-    sql = "CREATE TABLE %s(" % (table_name)
+
+    sql = 'BEGIN;'
+
+    # Drop table if exists
+    sql += 'DROP TABLE IF EXISTS %s;' % (table_name)
+
+    sql += "CREATE TABLE %s(" % (table_name)
     first_feature = True
+    # Mapping from postgis table to shapefile fields.
+    mapping = {}
     for feature in layer:
         # Getting the geometry for the feature.
         geom = feature.geom
@@ -178,67 +188,40 @@ def file2pgtable(infile, table_name, srid=4326):
                     fields.append(field_name + " date")
                     fieldnames.append(field_name)
 
+                mapping['field_name_name'] = field
+
     sql += ','.join(fields)
     sql += ',CONSTRAINT %s_pkey PRIMARY KEY (id));' % table_name
 
-    connection = connections['datastore']
-    cursor = connection.cursor()
-    try:
-        cursor.execute('DROP TABLE %s;' % (table_name))
-    except DatabaseError:
-        pass
-
-    cursor.execute(sql)
-
-    cursor.execute(
-            "SELECT AddGeometryColumn('public','%s','the_geom',%d,'%s',%d);" % (
+    sql +=  "SELECT AddGeometryColumn('public','%s','the_geom',%d,'%s',%d);" % (
                 table_name, srid, geo_type, coord_dim)
-    )
+
+    sql += 'END;'
 
     # la table est créée il faut maintenant injecter les données
     fieldnames.append('the_geom')
+    mapping['the_geom'] = geo_type
 
-    cursor.execute('BEGIN;')
+    # Running the sql
+    execute(sql)
 
-    for feature in layer:
-        values = []
-        for field in feature:
 
-            if field.type == 4:
-                field_value = unicode(field.value)
-            if field.type == 8 or field.type == 9 or field.type == 10:
-                field_value = unicode(field.value)
-            else:
-                field_value = u'%s' % field.value
+def execute(sql):
+    """Turns out running plain SQL within Django is very hard.
+       The following code is really weak but gets the job done.
+    """
+    from django import db
+    db.close_connection()
+    from django.db import connections
+    cursor = connections['datastore'].cursor()
+    try:
+        cursor.execute(sql)
+    except:
+        raise
+    finally:
+        cursor.close()
 
-            if isinstance(field_value, unicode):
-                field_value = field_value.replace("'", "\\'")
-                field_value = u"'%s'" % field_value
 
-            values.append(field_value)
-
-        wkt = str(feature.geom.wkt).replace(
-                str(feature.geom.geom_type).upper(), geo_type)
-        if str(feature.geom.geom_type).upper() != geo_type:
-            if wkt.find('((') > -1 and wkt.find('(((') == -1:
-                wkt = wkt.replace('((','(((').replace('))',')))')
-            elif wkt.find('(') > -1 and wkt.find('(((') == -1:
-                wkt = wkt.replace('(','((').replace(')','))')
-
-        values.append("ST_Force_2D(ST_GeomFromText('%s',%s))" % (wkt, srid))
-        sql_cmd = "INSERT INTO %s (%s) VALUES (%s)" % (
-                table_name, ','.join(fieldnames), ','.join(values))
-
-        cursor.execute(sql_cmd)
-
-    cursor.execute('END;')
-
-    return {
-        "result" : "success",
-        "geotype" : geo_type,
-        "table_name": table_name,
-        "nbObj": layer.num_feat,
-    }
 
 # Obtained from http://www.postgresql.org/docs/9.2/static/sql-keywords-appendix.html
 PG_RESERVED_KEYWORDS = (

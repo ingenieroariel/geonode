@@ -22,7 +22,6 @@ import logging
 
 from datetime import datetime
 
-from osgeo import gdal
 
 from django.db import models
 from django.db.models import signals
@@ -182,60 +181,10 @@ class Layer(ResourceBase):
     LEVEL_WRITE = 'layer_readwrite'
     LEVEL_ADMIN = 'layer_admin'
 
-    def save_to_postgis(self):
-        base_file = self.get_base_file()
-
-        if self.is_vector() and base_file is not None:
-            from geonode.layers.postgis import file2pgtable
-            output = file2pgtable(base_file.file.path, self.table_name)
-
-
-    def set_extent(self):
-        """Sets the spatial extent from an ogr datasource file"""
-        base_file = self.get_base_file()
-
-        if base_file is None:
-            return
-
-        if self.is_vector():
-            datasource = DataSource(base_file.file.path)
-            layer = datasource[0]
-            bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
-
-            # Set vector bounding box.
-            self.set_bounds_from_bbox([bbox_x0, bbox_x1, bbox_y0, bbox_y1])
-        else:
-            gtif = gdal.Open(base_file.file.path)
-            gt= gtif.GetGeoTransform()
-            cols = gtif.RasterXSize
-            rows = gtif.RasterYSize
-
-            ext=[]
-            xarr=[0,cols]
-            yarr=[0,rows]
-
-            # Get the extent.
-            for px in xarr:
-                for py in yarr:
-                    x=gt[0]+(px*gt[1])+(py*gt[2])
-                    y=gt[3]+(px*gt[4])+(py*gt[5])
-                    ext.append([x,y])
-
-                yarr.reverse()
-
-            # ext has four corner points, get a bbox from them.
-            bbox_x0 = ext[0][0]
-            bbox_y0 = ext[0][1]
-            bbox_x1 = ext[2][0]
-            bbox_y1 = ext[2][1]
-
-            # Set raster bounding box.
-            self.set_bounds_from_bbox([bbox_x0, bbox_x1, bbox_y0, bbox_y1])
-
-            # Set raster resolution.
-            __, resx, __, __, __, resy = gt
-            self.resolution = '%s %s' % (resx, resy)
-
+    def has_postgis_table(self):
+        """Check if the layer has a postgis table.
+        """
+        return self.table_name is None or self.table_name == ''
 
     def maps(self):
         from geonode.maps.models import MapLayer
@@ -349,12 +298,12 @@ def pre_save_layer(instance, sender, **kwargs):
     if base_file is not None:
         extension = '.%s' % base_file.name
         if extension in vec_exts:
-            instance.table_name = instance.name
             instance.storeType = 'dataStore'
         elif extension in cov_exts:
             instance.storeType = 'coverageStore'
 
-    instance.set_extent()
+    bbox = [instance.bbox_x0, instance.bbox_x1, instance.bbox_y0, instance.bbox_y1]
+    instance.set_bounds_from_bbox(bbox)
 
     # If an XML metadata document is uploaded,
     # parse the XML metadata and update uuid and URLs as per the content model
@@ -408,15 +357,12 @@ def post_delete_layer(instance, sender, **kwargs):
         instance.default_style.delete()
 
 
-def post_save_layer(instance, sender, **kwards):
+def post_save_layer(instance, sender, **kwargs):
     """Set missing default values.
     """
     instance.set_missing_info()
 
     xml_files = instance.layerfile_set.filter(name='xml')
-
-    if 'datastore' in connections:
-        instance.save_to_postgis()
 
     # If an XML metadata document is uploaded,
     # parse the XML metadata and update uuid and URLs as per the content model

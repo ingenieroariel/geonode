@@ -5,9 +5,7 @@ import re
 
 from django.db import connections
 from django.utils.datastructures import SortedDict
-
-class DbNotFoundException(Exception):
-    pass
+from django import db
 
 class ModelGenerator:
 
@@ -17,16 +15,23 @@ class ModelGenerator:
         self.namespace=namespace
 
     def generate_models(self):
-        try:
-            connection = connections[self.db_key]
-        except KeyError:
-            raise DbNotFoundException, "Database Not Found!"
+        connection = connections[self.db_key]
+
+        self.known_models = []
 
         cursor = connection.cursor()
-        self.known_models = []
-        for table_name in connection.introspection.table_names(cursor):
-            model_str = self.generate_model(table_name, connection, cursor)
+
+        # Iterate over the postgres tables to generate the models.
+        table_names = connection.introspection.table_names(cursor)
+
+        for tn in table_names:
+            model_str = self.generate_model(tn, connection, cursor)
             exec model_str in self.namespace
+
+        # This script may not close the transaction correctly.
+        # The following line will force it.
+        db.close_connection()
+
 
     def generate_model(self, table_name, connection, cursor):
         table_name_filter = self.table_name_filter
@@ -39,7 +44,7 @@ class ModelGenerator:
             if not table_name_filter(table_name):
                 return None
         model_str += 'class %s(models.Model):\n' % table2model(table_name)
-        self.known_models.append(table2model(table_name))    
+        self.known_models.append(table2model(table_name))
         try:
             relations = connection.introspection.get_relations(cursor, table_name)
         except NotImplementedError:

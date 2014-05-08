@@ -29,12 +29,15 @@ import os
 import glob
 import sys
 
+from osgeo import gdal
+
 # Django functionality
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
 from django.template.defaultfilters import slugify
 from django.core.files import File
 from django.core.files.base import ContentFile
+from django.contrib.gis.gdal import DataSource
 from django.conf import settings
 
 # Geonode functionality
@@ -50,6 +53,7 @@ from geonode.layers.models import shp_exts, csv_exts, kml_exts, vec_exts, cov_ex
 from geonode.utils import http_client
 
 from urlparse import urlsplit, urlunsplit, urljoin
+from geonode.layers.postgis import file2pgtable
 
 from zipfile import ZipFile
 
@@ -212,6 +216,65 @@ def get_default_user():
                                'before importing data. '
                                'Try: django-admin.py createsuperuser')
 
+def is_vector(filename):
+    __, extension = os.path.splitext(filename)
+
+    if extension in vec_exts:
+        return True
+    else:
+        return False 
+
+def is_raster(filename):
+    __, extension = os.path.splitext(filename)
+
+    if extension in cov_exts:
+        return True
+    else:
+        return False 
+
+def get_resolution(filename):
+    gtif = gdal.Open(filename)
+    gt= gtif.GetGeoTransform()
+    __, resx, __, __, __, resy = gt
+    resolution = '%s %s' % (resx, resy)
+    return resolution
+
+
+def get_bbox(filename):
+    bbox_x0, bbox_y0, bbox_x1, bbox_y1 = None, None, None, None
+
+    if is_vector(filename):
+        datasource = DataSource(filename)
+        layer = datasource[0]
+        bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
+
+    elif is_raster(filename):
+        gtif = gdal.Open(filename)
+        gt= gtif.GetGeoTransform()
+        cols = gtif.RasterXSize
+        rows = gtif.RasterYSize
+
+        ext=[]
+        xarr=[0,cols]
+        yarr=[0,rows]
+
+        # Get the extent.
+        for px in xarr:
+            for py in yarr:
+                x=gt[0]+(px*gt[1])+(py*gt[2])
+                y=gt[3]+(px*gt[4])+(py*gt[5])
+                ext.append([x,y])
+
+            yarr.reverse()
+
+        # ext has four corner points, get a bbox from them.
+        bbox_x0 = ext[0][0]
+        bbox_y0 = ext[0][1]
+        bbox_x1 = ext[2][0]
+        bbox_y1 = ext[2][1]
+
+    return [bbox_x0, bbox_x1, bbox_y0, bbox_y1]
+
 
 def file_upload(filename, name=None, user=None, title=None, abstract=None,
                 skip=True, overwrite=False, keywords=(), charset='UTF-8'):
@@ -228,8 +291,8 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
     files = get_files(filename)
 
     # Add them to the upload session (new file fields are created).
-    for type_name, filename in files.items():
-        f = open(filename)
+    for type_name, fn in files.items():
+        f = open(fn)
         us = upload_session.layerfile_set.create(name=type_name,
                                                 file=File(f),
                                                 )
@@ -246,14 +309,35 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
     # Generate a name that is not taken if overwrite is False.
     valid_name = get_valid_layer_name(name, overwrite)
 
-    # Get or create a layer object and attach the uploaded files.
-    layer, created = Layer.objects.get_or_create(name=valid_name,
-                                        defaults={
-                                            'title': title,
-                                            'abstract': abstract,
-                                            'owner': user,
-                                            'charset': charset,
-                                           })
+    # Get a bounding box
+    bbox_x0, bbox_x1, bbox_y0, bbox_y1 = get_bbox(filename)
+
+    defaults = {
+                'title': title,
+                'abstract': abstract,
+                'owner': user,
+                'charset': charset,
+                'bbox_x0' : bbox_x0,
+                'bbox_x1' : bbox_x1,
+                'bbox_y0' : bbox_y0,
+                'bbox_y1' : bbox_y1,
+    }
+
+    # If it is a vector file, create the layer in postgis.
+    table_name = None
+    if is_vector(filename):
+        file2pgtable(filename, valid_name)
+        defaults['table_name'] = valid_name
+
+    # If it is a raster file, get the resolution.
+    if is_raster(filename):
+        defaults['resolution'] = get_resolution(filename)
+
+    # Create a Django object.
+    layer, created = Layer.objects.get_or_create(
+                         name=valid_name,
+                         defaults=defaults
+                     )
 
     # Delete the old layers if overwrite is true
     # and the layer was not just created
@@ -265,9 +349,6 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
 
     # Assign the keywords (needs to be done after saving)
     layer.keywords.add(*keywords)
-
-    # Now that files are in place, save again to trigger all kind of signals.
-    layer.save()
 
     return layer
 
@@ -341,28 +422,28 @@ def upload(incoming, user=None, overwrite=False,
             save_it = True
 
         if save_it:
-            try:
-                layer = file_upload(filename,
+            layer = file_upload(filename,
                                     user=user,
                                     overwrite=overwrite,
                                     keywords=keywords,
-                                    )
-                if not existed:
-                    status = 'created'
-                else:
-                    status = 'updated'
-            except Exception, e:
-                if ignore_errors:
-                    status = 'failed'
-                    exception_type, error, traceback = sys.exc_info()
-                else:
-                    if verbosity > 0:
-                        msg = ('Stopping process because '
-                               '--ignore-errors was not set '
-                               'and an error was found.')
-                        print >> sys.stderr, msg
-                        msg = 'Failed to process %s' % filename
-                        raise Exception(msg, e), None, sys.exc_info()[2]
+                                )
+            if not existed:
+                status = 'created'
+            else:
+                status = 'updated'
+
+#            except Exception, e:
+#                if ignore_errors:
+#                    status = 'failed'
+#                    exception_type, error, traceback = sys.exc_info()
+#                else:
+#                    if verbosity > 0:
+#                        msg = ('Stopping process because '
+#                               '--ignore-errors was not set '
+#                               'and an error was found.')
+#                        print >> sys.stderr, msg
+#                        msg = 'Failed to process %s' % filename
+#                        raise Exception(msg, e), None, sys.exc_info()[2]
 
         msg = "[%s] Layer for '%s' (%d/%d)" % (status, filename, i + 1, number)
         info = {'file': filename, 'status': status}
