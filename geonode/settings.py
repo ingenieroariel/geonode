@@ -159,6 +159,7 @@ GEONODE_APPS = (
     'geonode.people',
     'geonode.base',
     'geonode.layers',
+    'geonode.dynamic',
     'geonode.maps',
     'geonode.proxy',
     'geonode.security',

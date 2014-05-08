@@ -349,7 +349,7 @@ def pre_save_layer(instance, sender, **kwargs):
     if base_file is not None:
         extension = '.%s' % base_file.name
         if extension in vec_exts:
-            instance.table_name = 'geonode__%s' % instance.name
+            instance.table_name = instance.name
             instance.storeType = 'dataStore'
         elif extension in cov_exts:
             instance.storeType = 'coverageStore'
