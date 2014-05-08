@@ -170,7 +170,7 @@ def file2pgtable(infile, table_name, srid=4326):
         if first_feature:
             first_feature = False
             fields = []
-            fields.append('id' + " serial NOT NULL")
+            fields.append('id' + " serial NOT NULL PRIMARY KEY")
             fieldnames = []
             for field in feature:
                 field_name = get_model_field_name(field.name)
@@ -188,10 +188,10 @@ def file2pgtable(infile, table_name, srid=4326):
                     fields.append(field_name + " date")
                     fieldnames.append(field_name)
 
-                mapping['field_name_name'] = field
+                mapping[field_name] = field.name
 
     sql += ','.join(fields)
-    sql += ',CONSTRAINT %s_pkey PRIMARY KEY (id));' % table_name
+    sql += ');'
 
     sql +=  "SELECT AddGeometryColumn('public','%s','the_geom',%d,'%s',%d);" % (
                 table_name, srid, geo_type, coord_dim)
@@ -205,6 +205,7 @@ def file2pgtable(infile, table_name, srid=4326):
     # Running the sql
     execute(sql)
 
+    return mapping
 
 def execute(sql):
     """Turns out running plain SQL within Django is very hard.

@@ -7,25 +7,23 @@ from django.db import connections
 from django.utils.datastructures import SortedDict
 from django import db
 
+
 class ModelGenerator:
 
     def __init__(self, db_key, namespace, table_name_filter=None):
         self.db_key = db_key
         self.table_name_filter = table_name_filter
         self.namespace=namespace
+        self.connection=connections[self.db_key]
 
     def generate_models(self):
-        connection = connections[self.db_key]
-
         self.known_models = []
 
-        cursor = connection.cursor()
-
         # Iterate over the postgres tables to generate the models.
-        table_names = connection.introspection.table_names(cursor)
+        table_names = self.connection.introspection.table_names(self.connection.cursor())
 
         for tn in table_names:
-            model_str = self.generate_model(tn, connection, cursor)
+            model_str = self.generate_model(tn)
             exec model_str in self.namespace
 
         # This script may not close the transaction correctly.
@@ -33,28 +31,36 @@ class ModelGenerator:
         db.close_connection()
 
 
-    def generate_model(self, table_name, connection, cursor):
+    def generate_model(self, table_name):
+        cursor = self.connection.cursor()
+
         table_name_filter = self.table_name_filter
 
         table2model = lambda table_name: table_name.title().replace('_', '').replace(' ', '').replace('-', '')
         strip_prefix = lambda s: s[1:] if s.startswith("u'") else s
 
         model_str = 'from django.contrib.gis.db import models\n'
+        model_str +='\n'
+        model_str +='class DynamicManager(models.GeoManager):\n'
+        model_str +='    def get_queryset(self):\n'
+        model_str +='        return super(DatastoreManager, self).get_queryset().using("datastore")\n'
+        model_str +='\n'
+
         if table_name_filter is not None and callable(table_name_filter):
             if not table_name_filter(table_name):
                 return None
         model_str += 'class %s(models.Model):\n' % table2model(table_name)
         self.known_models.append(table2model(table_name))
         try:
-            relations = connection.introspection.get_relations(cursor, table_name)
+            relations = self.connection.introspection.get_relations(cursor, table_name)
         except NotImplementedError:
             relations = {}
         try:
-            indexes = connection.introspection.get_indexes(cursor, table_name)
+            indexes = self.connection.introspection.get_indexes(cursor, table_name)
         except NotImplementedError:
             indexes = {}
         used_column_names = [] # Holds column names used in the table so far
-        for i,row in enumerate(connection.introspection.get_table_description(cursor, table_name)):
+        for i,row in enumerate(self.connection.introspection.get_table_description(cursor, table_name)):
             comment_notes = [] # Holds Field notes, to be displayed in a Python comment.
             extra_params = SortedDict() # Holds Field parameters such as 'db_column'.
             column_name = row[0]
@@ -86,17 +92,16 @@ class ModelGenerator:
             else:
                 # Calling `get_field_type` to get the field type string and any
                 # additional parameters and notes
-                field_type, field_params, field_notes = self.get_field_type(connection, table_name, row)
+                field_type, field_params, field_notes = self.get_field_type(table_name, row)
                 extra_params.update(field_params)
                 comment_notes.extend(field_notes)
 
 
                 field_type += '('
 
-            # Don't output 'id = meta.AutoField(primary_key=True)', because
-            # that's assumed if it doesn't exist.
-            if att_name == 'id' and field_type == 'AutoField(' and extra_params == {'primary_key': True}:
-                continue
+            # Change the type of id to AutoField to get auto generated ids.
+            if att_name == 'id' and extra_params == {'primary_key': True}:
+                field_type = 'AutoField('
 
             # Add 'null' and 'blank', if the 'null_ok' flag was present in the
             # table description.
@@ -179,7 +184,7 @@ class ModelGenerator:
 
         return new_name, field_params, field_notes
 
-    def get_field_type(self, connection, table_name, row):
+    def get_field_type(self, table_name, row):
         """
         Given the database connection, the table name, and the cursor row
         description, this routine will return the given field type name, as
@@ -189,7 +194,7 @@ class ModelGenerator:
         field_notes = []
 
         try:
-            field_type = connection.introspection.get_field_type(row[1], row)
+            field_type = self.connection.introspection.get_field_type(row[1], row)
         except KeyError:
             field_type = 'TextField'
             field_notes.append('This field type is a guess.')
@@ -219,5 +224,7 @@ class ModelGenerator:
         meta = ["    class Meta:",
                 "        managed = False",
                 "        db_table = '%s'" % table_name,
+                "    ",
+                "    objects = DynamicManager()",
                 ""]
         return meta

@@ -38,6 +38,7 @@ from django.template.defaultfilters import slugify
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.contrib.gis.gdal import DataSource
+from django.contrib.gis.utils import LayerMapping
 from django.conf import settings
 
 # Geonode functionality
@@ -54,6 +55,7 @@ from geonode.utils import http_client
 
 from urlparse import urlsplit, urlunsplit, urljoin
 from geonode.layers.postgis import file2pgtable
+from geonode.dynamic.models import get_model
 
 from zipfile import ZipFile
 
@@ -216,6 +218,24 @@ def get_default_user():
                                'before importing data. '
                                'Try: django-admin.py createsuperuser')
 
+
+def load_data(filename, table_name, mapping, encoding='utf-8'):
+    model_name = get_model(table_name)
+    dyn_models = __import__('geonode.dynamic.models', globals(), locals(), [model_name,], 0)
+    TheModel = getattr(dyn_models, model_name)
+
+    # Workaround to auto generate the id.
+#    the_meta = TheModel._meta
+#    the_meta.managed = True
+#    TheModel._meta = the_meta
+
+    lm = LayerMapping(TheModel, filename, mapping,
+                      encoding=encoding,
+                      using='datastore',
+                      transform=None
+                      )
+    lm.save()
+
 def is_vector(filename):
     __, extension = os.path.splitext(filename)
 
@@ -326,8 +346,11 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
     # If it is a vector file, create the layer in postgis.
     table_name = None
     if is_vector(filename):
-        file2pgtable(filename, valid_name)
+        mapping = file2pgtable(filename, valid_name)
         defaults['table_name'] = valid_name
+
+        # Use layermapping to load the layer with geodjango
+        load_data(filename, valid_name, mapping, encoding=charset)
 
     # If it is a raster file, get the resolution.
     if is_raster(filename):

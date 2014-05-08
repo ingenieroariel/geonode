@@ -16,6 +16,12 @@ class MultiDBModelAdmin(admin.OSMGeoAdmin):
         # Tell Django to look for objects on the 'other' database.
         return super(MultiDBModelAdmin, self).get_queryset(request).using(self.using)
 
+
+    def queryset(self, request):
+        # Tell Django to look for objects on the 'other' database.
+        return super(MultiDBModelAdmin, self).queryset(request).using(self.using)
+
+
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         # Tell Django to populate ForeignKey widgets using a query
         # on the 'other' database.
@@ -25,6 +31,7 @@ class MultiDBModelAdmin(admin.OSMGeoAdmin):
         # Tell Django to populate ManyToMany widgets using a query
         # on the 'other' database.
         return super(MultiDBModelAdmin, self).formfield_for_manytomany(db_field, request=request, using=self.using, **kwargs)
+
 
 
 for dm in dynamic_models:
