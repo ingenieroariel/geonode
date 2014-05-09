@@ -339,11 +339,12 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
         # Set table_name and the model string as fields in the vector layer.
         defaults['table_name'] = valid_name
         defaults['data_model_str'] = data_model_str
-
+        defaults['storeType'] =  'dataStore'
 
     # If it is a raster file, get the resolution.
     if is_raster(filename):
         defaults['resolution'] = get_resolution(filename)
+        defaults['storeType'] = 'coverageStore'
 
     # Create a Django object.
     layer, created = Layer.objects.get_or_create(
