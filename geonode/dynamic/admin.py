@@ -1,5 +1,6 @@
 from django.contrib.gis import admin
-from geonode.dynamic.models import dynamic_models
+from geonode.dynamic.models import *
+
 
 class MultiDBModelAdmin(admin.OSMGeoAdmin):
     using = 'datastore'
@@ -33,6 +34,10 @@ class MultiDBModelAdmin(admin.OSMGeoAdmin):
         return super(MultiDBModelAdmin, self).formfield_for_manytomany(db_field, request=request, using=self.using, **kwargs)
 
 
+local_vars = locals().items()
+the_models = [m for __, m in local_vars if hasattr(m, '_meta')]
 
-for dm in dynamic_models:
-    admin.site.register(dm, MultiDBModelAdmin)
+for TheModel in the_models:
+    if TheModel._meta.app_label != u'dynamic':
+        continue
+    admin.site.register(TheModel, MultiDBModelAdmin)

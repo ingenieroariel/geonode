@@ -55,7 +55,7 @@ from geonode.utils import http_client
 
 from urlparse import urlsplit, urlunsplit, urljoin
 from geonode.layers.postgis import file2pgtable
-from geonode.dynamic.models import get_model
+from geonode.dynamic.models import get_model, generate_model
 
 from zipfile import ZipFile
 
@@ -219,23 +219,6 @@ def get_default_user():
                                'Try: django-admin.py createsuperuser')
 
 
-def load_data(filename, table_name, mapping, encoding='utf-8'):
-    model_name = get_model(table_name)
-    dyn_models = __import__('geonode.dynamic.models', globals(), locals(), [model_name,], 0)
-    TheModel = getattr(dyn_models, model_name)
-
-    # Workaround to auto generate the id.
-#    the_meta = TheModel._meta
-#    the_meta.managed = True
-#    TheModel._meta = the_meta
-
-    lm = LayerMapping(TheModel, filename, mapping,
-                      encoding=encoding,
-                      using='datastore',
-                      transform=None
-                      )
-    lm.save()
-
 def is_vector(filename):
     __, extension = os.path.splitext(filename)
 
@@ -346,11 +329,17 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
     # If it is a vector file, create the layer in postgis.
     table_name = None
     if is_vector(filename):
+        # Load the table in postgis and get a mapping from fields in the database
+        # and fields in the Shapefile.
         mapping = file2pgtable(filename, valid_name)
-        defaults['table_name'] = valid_name
 
-        # Use layermapping to load the layer with geodjango
-        load_data(filename, valid_name, mapping, encoding=charset)
+        # Generate a Django model string from the created table.
+        data_model_str = generate_model('datastore', valid_name)
+
+        # Set table_name and the model string as fields in the vector layer.
+        defaults['table_name'] = valid_name
+        defaults['data_model_str'] = data_model_str
+
 
     # If it is a raster file, get the resolution.
     if is_raster(filename):
@@ -366,6 +355,18 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
     # and the layer was not just created
     if not created and overwrite:
         layer.layerfile_set.all().delete()
+
+
+    # Now that the layer is created, let's load the data
+    if is_vector(filename):
+        # Use layermapping to load the layer with geodjango
+        lm = LayerMapping(layer.data_model, filename, mapping,
+                          encoding=layer.charset,
+                          using='datastore',
+                          transform=None
+                      )
+        lm.save()
+
 
     # Assign the uploaded files to this layer.
     upload_session.layerfile_set.all().update(layer=layer)

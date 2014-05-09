@@ -17,6 +17,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 #########################################################################
+import re
 import uuid
 import logging
 
@@ -40,6 +41,7 @@ from geonode.base.models import Thumbnail
 from geonode.people.utils import get_valid_user
 from geonode.layers.metadata import set_metadata
 from agon_ratings.models import OverallRating
+from geonode.dynamic import models as dynamic_models
 
 logger = logging.getLogger("geonode.layers.models")
 
@@ -107,6 +109,8 @@ class Layer(ResourceBase):
 
     charset = models.CharField(max_length=255, default='UTF-8')
 
+    data_model_str = models.TextField(null=True, blank=True)
+
     def is_vector(self):
         return self.storeType == 'dataStore'
 
@@ -132,11 +136,24 @@ class Layer(ResourceBase):
         else:
             return settings.OGC_SERVER['default']['LOCATION'] + "wms"
 
+    def data_model(self):
+        """Return a Django model for this layer's dataset.
+        """
+        # Get the model name to be used when importing.
+        regex = re.compile("class (.*?)\(models")
+        manager_name, model_name = regex.findall(self.data_model_str)
+
+        reload(dynamic_models)
+
+        # Get the model from the module
+        TheModel = getattr(dynamic_models, model_name)
+
+        # Fresh from the oven, the dynamic model.
+        return TheModel
+
+    @property
     def data_objects(self):
-        model_name = self.table_name.replace('_', ' ').title().replace(' ', '')
-        dyn_models = __import__('geonode.dynamic.models', globals(), locals(), [model_name,], 0)
-        TheModel = getattr(dyn_models, model_name)
-        return TheModel.objects.using('datastore')
+       return self.data_model.objects.using('datastore')
 
 
     def get_base_file(self):
