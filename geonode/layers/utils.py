@@ -334,7 +334,7 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
         mapping = file2pgtable(filename, valid_name)
 
         # Generate a Django model string from the created table.
-        data_model_str = generate_model('datastore', valid_name)
+        data_model_str = generate_model('datastore', valid_name, mapping['geom'])
 
         # Set table_name and the model string as fields in the vector layer.
         defaults['table_name'] = valid_name

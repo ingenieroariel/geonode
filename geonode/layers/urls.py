@@ -36,7 +36,8 @@ urlpatterns = patterns(
     url(r'^(?P<layername>[^/]*)/remove$', 'layer_remove', name="layer_remove"),
     url(r'^(?P<layername>[^/]*)/replace$', 'layer_replace',
         name="layer_replace"),
-    #url(r'^api/batch_permissions/?$', 'batch_permissions',
+    url(r'^(?P<layername>[^/]*)/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+).geojson$', 'vector_tiles', name="layer_vector_tiles"),
+#url(r'^api/batch_permissions/?$', 'batch_permissions',
     #    name='batch_permssions'),
     #url(r'^api/batch_delete/?$', 'batch_delete', name='batch_delete'),
 )

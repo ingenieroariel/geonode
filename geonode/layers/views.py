@@ -48,6 +48,7 @@ from geonode.people.forms import ProfileForm, PocForm
 from geonode.security.views import _perms_info_json
 from geonode.documents.models import get_related_documents
 
+from djgeojson.views import TiledGeoJSONLayerView
 
 logger = logging.getLogger("geonode.layers.views")
 
@@ -372,4 +373,10 @@ def layer_remove(request, layername, template='layers/layer_remove.html'):
         )
 
 
-
+def vector_tiles(request, layername, x, y, z):
+    """Return vector tiles (TiledGeoJSON)
+    """
+    layer = _resolve_layer(request, layername, 'layers.view_layer', _PERMISSION_MSG_VIEW)
+    TheModel = layer.data_model
+    tiledgeojson_view = TiledGeoJSONLayerView.as_view(model=TheModel)
+    return tiledgeojson_view(request, x, y, z)

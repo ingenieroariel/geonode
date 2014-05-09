@@ -31,7 +31,7 @@ else:
         exec layer.data_model_str
 
 
-def generate_model(db_key, table_name):
+def generate_model(db_key, table_name, geom_type='GEOMETRY'):
     """Uses instrospection to generate a Django model from a database table.
     """
     connection = connections[db_key]
@@ -48,7 +48,7 @@ def generate_model(db_key, table_name):
     model_str +='\n'
     model_str +='class DynamicManager(models.GeoManager):\n'
     model_str +='    def get_queryset(self):\n'
-    model_str +='        return super(DatastoreManager, self).get_queryset().using("datastore")\n'
+    model_str +='        return super(DynamicManager, self).get_queryset().using("datastore")\n'
     model_str +='\n'
 
     if table_name_filter is not None and callable(table_name_filter):
@@ -105,6 +105,24 @@ def generate_model(db_key, table_name):
 
 
             field_type += '('
+
+
+        GEOM_FIELDS = {
+            'GEOMETRYCOLLECTION': 'GeometryCollectionField',
+            'POINT': 'PointField',
+            'MULTIPOINT': 'MultiPointField',
+            'LINESTRING': 'LineStringField',
+            'MULTILINESTRING': 'MultiLineStringField',
+            'POLYGON': 'PolygonField',
+            'MULTIPOLYGON': 'MultiPolygonField',
+            'GEOMETRY': 'GeometryField',
+        }
+
+        # Use the geom_type to override the geometry field.
+        if field_type == 'GeometryField(':
+            if geom_type.upper in GEOM_FIELDS:
+                field_type = GEOM_FIELDS[geom_type]
+                field_type += '('
 
         # Change the type of id to AutoField to get auto generated ids.
         if att_name == 'id' and extra_params == {'primary_key': True}:
@@ -227,6 +245,7 @@ def get_field_type(connection, table_name, row):
         field_params['max_digits'] = row[4]
         field_params['decimal_places'] = row[5]
 
+
     return field_type, field_params, field_notes
 
 def get_meta(table_name):
@@ -239,7 +258,7 @@ def get_meta(table_name):
             "        managed = False",
             "        db_table = '%s'" % table_name,
             "    ",
-            "    objects = DynamicManager()",
+            "    objects = models.GeoManager()",
             ""]
     return meta
 
