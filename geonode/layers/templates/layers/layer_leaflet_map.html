@@ -23,18 +23,25 @@
         {% endif %}
 
         {% if layer.table_name %}
-        L.geoJson({{ layer.data_objects|geojsonfeature|safe}}
-        ,{
-        {% if layer.geom_type == 'Point' %}
-            pointToLayer: function(feature, latlng) {
-            return new L.CircleMarker(latlng, {radius: 5, fillOpacity: 0.5});
-         },
-         {% endif %}
-        onEachFeature: function (feature, layer) {
-            layer.bindPopup('GetFeatureInfo replacement. id: ' + feature.properties.id);
-         }
-        }
-        ).addTo(detail.map);
+
+        {# If the layer does not have too many features, just pass them to the html  #}
+
+            {% if layer.data_objects.count < 500 %}
+                L.geoJson({{ layer.data_objects|geojsonfeature|safe}},{
+                {% if layer.geom_type == 'Point' %}
+                    pointToLayer: function(feature, latlng) {
+                    return new L.CircleMarker(latlng, {radius: 5, fillOpacity: 0.5});
+                 },
+                 {% endif %}
+                onEachFeature: function (feature, layer) {
+                    layer.bindPopup('GetFeatureInfo replacement. id: ' + feature.properties.id);
+                 }
+                }
+                ).addTo(detail.map);
+            {% endif %}
+
+
+
         {% endif %}
 
         var geom_type = '{{ layer.geom_type }}';

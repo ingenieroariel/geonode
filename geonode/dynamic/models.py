@@ -120,7 +120,7 @@ def generate_model(db_key, table_name, geom_type='GEOMETRY'):
 
         # Use the geom_type to override the geometry field.
         if field_type == 'GeometryField(':
-            if geom_type.upper in GEOM_FIELDS:
+            if geom_type in GEOM_FIELDS:
                 field_type = GEOM_FIELDS[geom_type]
                 field_type += '('
 
