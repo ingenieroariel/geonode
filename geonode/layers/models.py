@@ -135,6 +135,20 @@ class Layer(ResourceBase):
         else:
             return settings.OGC_SERVER['default']['LOCATION'] + "wms"
 
+    def geom_type(self):
+        """Identify the type of geometry.
+        """
+        if not self.is_vector():
+            return None
+
+        if self.data_objects.count() == 0:
+            return None
+
+        sample = self.data_objects.all()[0]
+
+        return sample.geom.geom_type
+
+    @property
     def data_model(self):
         """Return a Django model for this layer's dataset.
         """

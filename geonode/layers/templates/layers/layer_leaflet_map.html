@@ -23,8 +23,21 @@
         {% endif %}
 
         {% if layer.table_name %}
-        L.geoJson({{ layer.data_objects|geojsonfeature|safe}}).addTo(detail.map);
+        L.geoJson({{ layer.data_objects|geojsonfeature|safe}}
+        ,{
+        {% if layer.geom_type == 'Point' %}
+            pointToLayer: function(feature, latlng) {
+            return new L.CircleMarker(latlng, {radius: 5, fillOpacity: 0.5});
+         },
+         {% endif %}
+        onEachFeature: function (feature, layer) {
+            layer.bindPopup('GetFeatureInfo replacement. id: ' + feature.properties.id);
+         }
+        }
+        ).addTo(detail.map);
         {% endif %}
+
+        var geom_type = '{{ layer.geom_type }}';
     }, false);
 
     function zoom_to_box(map, bbox){
