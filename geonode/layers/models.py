@@ -41,7 +41,6 @@ from geonode.base.models import Thumbnail
 from geonode.people.utils import get_valid_user
 from geonode.layers.metadata import set_metadata
 from agon_ratings.models import OverallRating
-from geonode.dynamic import models as dynamic_models
 
 logger = logging.getLogger("geonode.layers.models")
 
@@ -139,6 +138,7 @@ class Layer(ResourceBase):
     def data_model(self):
         """Return a Django model for this layer's dataset.
         """
+        from geonode.dynamic import models as dynamic_models
         # Get the model name to be used when importing.
         regex = re.compile("class (.*?)\(models")
         manager_name, model_name = regex.findall(self.data_model_str)
