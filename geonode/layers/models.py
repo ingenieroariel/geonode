@@ -152,6 +152,9 @@ class Layer(ResourceBase):
     def data_model(self):
         """Return a Django model for this layer's dataset.
         """
+        if self.data_model_str is None or len(self.data_model_str) == 0:
+            return None
+
         from geonode.dynamic import models as dynamic_models
         # Get the model name to be used when importing.
         regex = re.compile("class (.*?)\(models")
@@ -169,6 +172,13 @@ class Layer(ResourceBase):
     def data_objects(self):
        return self.data_model.objects.using('datastore')
 
+    @property
+    def ows_url(self):
+        if self.storeType == "remoteStore" and "geonode.contrib.services" in settings.INSTALLED_APPS:
+            from geonode.contrib.services.models import ServiceLayer
+            return ServiceLayer.objects.filter(layer__id=self.id)[0].service.base_url
+        else:
+            return settings.OGC_SERVER['default']['LOCATION'] + "wms"
 
     def get_base_file(self):
         base_exts = [x.replace('.','') for x in cov_exts + vec_exts]

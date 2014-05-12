@@ -51,6 +51,7 @@ from geonode.base.models import SpatialRepresentationType, TopicCategory
 from geonode.base.models import Link, Thumbnail
 from geonode.upload.files import _clean_string, _rename_zip
 from geonode.layers.models import shp_exts, csv_exts, kml_exts, vec_exts, cov_exts
+from geonode.layers.postgis import file2pgtable
 from geonode.utils import http_client
 
 from urlparse import urlsplit, urlunsplit, urljoin
@@ -326,19 +327,23 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
                 'bbox_y1' : bbox_y1,
     }
 
-    # If it is a vector file, create the layer in postgis.
-    table_name = None
-    if is_vector(filename):
+    if 'datastore' in settings.DATABASES and is_vector(filename):
         # Load the table in postgis and get a mapping from fields in the database
         # and fields in the Shapefile.
         mapping = file2pgtable(filename, valid_name)
 
         # Generate a Django model string from the created table.
+        from geonode.dynamic.models import generate_model
         data_model_str = generate_model('datastore', valid_name, mapping['geom'])
 
         # Set table_name and the model string as fields in the vector layer.
         defaults['table_name'] = valid_name
         defaults['data_model_str'] = data_model_str
+
+
+    # If it is a vector file, create the layer in postgis.
+    table_name = None
+    if is_vector(filename):
         defaults['storeType'] =  'dataStore'
 
     # If it is a raster file, get the resolution.
@@ -359,7 +364,7 @@ def file_upload(filename, name=None, user=None, title=None, abstract=None,
 
 
     # Now that the layer is created, let's load the data
-    if is_vector(filename):
+    if 'datastore' in settings.DATABASES and is_vector(filename):
         # Use layermapping to load the layer with geodjango
         lm = LayerMapping(layer.data_model, filename, mapping,
                           encoding=layer.charset,
