@@ -375,3 +375,41 @@ def layer_remove(request, layername, template='layers/layer_remove.html'):
                 mimetype="text/plain",
                 status=401
         )
+
+from guardian.shortcuts import get_objects_for_user
+from guardian.shortcuts import get_anonymous_user
+from django.core.serializers.json import DjangoJSONEncoder
+import json
+
+def layer_list(request, limit=2000, offset=0):
+    VALUES = [
+        # fields in the db
+        'id',
+        'uuid',
+        'title',
+        'abstract',
+        'csw_wkt_geometry',
+        'csw_type',
+        'distribution_description',
+        'distribution_url',
+        'owner_id',
+        'share_count',
+        'srid',
+        'category',
+        'supplemental_information',
+        'thumbnail_url',
+        'absolute_url',
+    ]
+
+    user = request.user
+
+    if user.is_anonymous():
+        user = get_anonymous_user()
+
+    resources = get_objects_for_user(user, 'base.view_resourcebase')
+
+    resource_values = resources.values(*VALUES)[offset:limit]
+
+    data = { 'object_list': resource_values, 'limit': limit, 'offset': offset }
+
+    return render_to_response('layers/layer_list_fast.html', data, context_instance=RequestContext(request) )

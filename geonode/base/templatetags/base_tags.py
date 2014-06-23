@@ -31,11 +31,12 @@ def facets(context):
         'raster': 0,
         'vector': 0,
     }
+
     resources = get_objects_for_user(request.user, 'base.view_resourcebase')
     vectors = Layer.objects.filter(storeType='dataStore').values_list('id', flat=True)
     rasters = Layer.objects.filter(storeType='coverageStore').values_list('id', flat=True)
     remote = Layer.objects.filter(storeType='remoteStore').values_list('id', flat=True)
-   
+
     facets['raster'] = resources.filter(id__in=vectors).count()
     facets['vector'] = resources.filter(id__in=rasters).count()
     facets['remote'] = resources.filter(id__in=remote).count()

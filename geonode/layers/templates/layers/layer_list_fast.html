@@ -1,0 +1,138 @@
+{% extends "layers/layer_base.html" %}
+{% load i18n %}
+{% load taggit_extras %}
+{% load staticfiles %}
+{% load url from future %}
+{% load base_tags %}
+{% load cache %}
+
+{% block title %} {% trans "Explore Layers" %} - {{ block.super }} {% endblock %}
+
+{% block body_class %}layers explore{% endblock %}
+
+{% block body %}
+  <div class="col-md-12">
+    <a href="{% url "layer_upload" %}" class="btn btn-primary pull-right">{% trans "Upload Layers" %}</a>
+    <h2 class="page-title">{% trans "Explore Layers" %}</h2>
+  </div>
+
+ <div class="col-md-8 filter">
+    {% include "search/_sort_filters.html" %}
+  </div>
+  <div class="col-md-12">
+    <div class="row" id="contain-slider">
+      <div class="col-md-3">
+        <div class="selections">
+          <h5>
+            {% trans "Your selections" %}
+            <a href="." id="clear-search" class="pull-right">Clear all filters</a>
+          </h5>
+        </div>
+{% cache 6000 sidebar request.user.username %}
+        <div id="slide-pane">
+        <nav class="filter">
+          <h4><a href="#" class="toggle toggle-nav"><i class="fa fa-chevron-down"></i>{% trans "Type" %}</a></h4>
+          <ul class="nav" id="types">
+            {% facets as facets %}
+            {% for facet, count in facets.items %}
+            {% if count > 0 %}
+            <li>⋅
+              <a data-value="{{ facet }}" data-filter="type__in" ng-click="multiple_choice_listener($event)">{{ facet|capfirst }}⋅
+                <span class="badge pull-right">{{ count }}</span>
+              </a>
+            </li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </nav>
+
+        <nav class="filter">
+          <h4><a href="#" class="toggle toggle-nav"><i class="fa fa-chevron-right"></i>{% trans "Categories" %}</a></h4>
+					<ul class="nav closed" id="categories">
+						{% for category in categories %}
+              <li>
+                <a data-value="{{ category.identifier }}" data-filter="category__identifier__in"⋅
+                 ng-click="multiple_choice_listener($event)" class="{{category.active}}">{{ category.gn_description }}
+                  <span class="badge pull-right">{{ category.count }}</span>
+                </a>
+								</li>
+								{% endfor %}
+          </ul>
+        </nav>
+
+        <nav class="filter">
+          <h4><a href="#" class="toggle toggle-nav"><i class="fa fa-chevron-right"></i> {% trans "Keywords" %}</a></h4>
+					<ul class="nav closed" id="keywords">
+						{% for keyword in keywords %}
+              <li>
+                <a data-value="{{ keyword.slug }}" data-filter="keywords__slug__in" ng-click="multiple_choice_listener($event)" class="{{keyword.active}}">{{ keyword.name }}⋅
+                  <span class="badge pull-right">{{ keyword.count }}</span>
+                </a>
+								</li>
+								{% endfor %}
+          </ul>
+        </nav>
+
+        <nav class="filter">
+          <h4><a href="#" class="toggle toggle-nav"><i class="fa fa-chevron-right"></i>{% trans "Date" %}</a></h4>
+          <ul class="nav closed" id="date_start">
+            <label>Date begins after:</label>
+            <li><input value="yyyy-mm-dd" data-date-format="yyyy-mm-dd" type="text" class="datepicker" placeholder="yyyy-mm-dd" ng-model="date_query.date__gte" /></li>
+          </ul>
+          <ul class="nav closed" id="date_end">
+            <label>Date ends before:</label>
+            <li><input value="yyyy-mm-dd" data-date-format="yyyy-mm-dd" type="text" class="datepicker" placeholder="yyyy-mm-dd" ng-model="date_query.date__lte" /></li>
+          </ul>
+        </nav>
+
+        <nav class="filter">
+          <h4><a href="#" class="toggle toggle-nav"><i class="fa fa-chevron-down"></i>{% trans "Extent" %}</a></h4>
+          <fieldset class="nav">
+            <div class="control-group leaflet_map">
+              <leaflet center="map_center" defaults="defaults" layers="layers">
+              </leaflet>
+            </div>
+          </fieldset>
+        </nav>
+
+{% endcache %}
+
+        </div>
+      </div>
+      <div class="col-md-9">
+          {% cache 6000 layer_list request.user.username offset limit %}
+          {% for item in object_list %}
+          <article>
+          <div class="row items-list">
+            <div class="col-md-4">
+              <a href="{{ item.absolute_url }}"><img class="thumb" ng-src="{{ item.thumbnail_url }}" /></a>
+            </div>
+              <div class="col-md-8">
+                <h4><a href="{{ item.absolute_url }}">{{ item.title }}</a> <span class="owner">{{ item.owner.username }}</span></h4>
+                <p>{{ item.category.gn_description }}</p>
+                <p class="abstract">{{ item.abstract|truncatewords:25 }}...</p>
+                <p class="actions">
+                  <a href="#"><i class="fa fa-calendar-o"></i>{{ item.date|date:'d MMM y' }}</a> |⋅
+                  <a href="#"><i class="fa fa-eye"></i>{{ item.popular_count }}</a> |⋅
+                  <a href="#"><i class="fa fa-share"></i>{{ item.share_count }}</a> |⋅
+                  <a href="#"><i class="fa fa-star"></i>{{ item.rating }}</a></p>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
+          {% endcache %}
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block extra_script %}
+
+<style>
+  .leaflet-container {  /* all maps */
+    height: 300px;
+  }
+</style>
+
+{% endblock extra_script %}
