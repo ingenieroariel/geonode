@@ -381,7 +381,7 @@ from guardian.shortcuts import get_anonymous_user
 from django.core.serializers.json import DjangoJSONEncoder
 import json
 
-def layer_list(request, limit=2000, offset=0):
+def layer_list(request, limit=100, offset=0):
     VALUES = [
         # fields in the db
         'id',
