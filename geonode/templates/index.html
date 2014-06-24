@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load staticfiles %}
 {% load base_tags %}
+{% load cache %}
 
 {% block title %} {% trans "Welcome!" %} - {{ block.super }} {% endblock %}
 
@@ -22,6 +23,7 @@
 
   {% block mainbody %}
   <div class="container">
+   {% cache 6000 home_count request.user.username %} 
     <div class="row">
     {% with facet_type='home' %}
      {% facets as facets %}
@@ -46,6 +48,7 @@
       </div>
     {% endwith %}
     </div>
+    {% endcache %}
   </div>
   {% verbatim %}
   <div ng-app="featured">
