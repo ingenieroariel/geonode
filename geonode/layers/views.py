@@ -34,8 +34,9 @@ from django.utils import simplejson as json
 from django.utils.html import escape
 from django.template.defaultfilters import slugify
 from django.forms.models import inlineformset_factory
-from geonode.services.models import Service
+from django.core.cache import cache
 
+from geonode.services.models import Service
 from geonode.layers.forms import LayerForm, LayerUploadForm, NewLayerUploadForm, LayerAttributeForm
 from geonode.base.forms import CategoryForm
 from geonode.layers.models import Layer, Attribute
@@ -406,10 +407,18 @@ def layer_list(request, limit=100, offset=0):
     if user.is_anonymous():
         user = get_anonymous_user()
 
-    resources = get_objects_for_user(user, 'base.view_resourcebase')
+    cache_key = 'layer_list-%s-%s-%s' % (user, limit, offset)
 
-    resource_values = resources.values(*VALUES)[offset:limit]
+    data = cache.get(cache_key)
 
-    data = { 'object_list': resource_values, 'limit': limit, 'offset': offset }
+    if data is None:
+
+        resources = get_objects_for_user(user, 'base.view_resourcebase')
+
+        resource_values = resources.values(*VALUES)[offset:limit]
+
+        data = { 'object_list': resource_values, 'limit': limit, 'offset': offset }
+
+        cache.set(cache_key, data)
 
     return render_to_response('layers/layer_list_fast.html', data, context_instance=RequestContext(request) )
