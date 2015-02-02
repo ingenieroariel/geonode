@@ -35,7 +35,6 @@ import gsimporter
 import json
 import logging
 import os
-import re
 import traceback
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -120,7 +119,7 @@ def _error_response(req, exception=None, errors=None, force_ajax=True):
     if exception:
         logger.exception('Unexpected error in upload step')
     else:
-        logger.warning('upload error: %s', errors)
+        logger.error('upload error: %s', errors)
     if req.is_ajax() or force_ajax:
         content_type = 'text/html' if not req.is_ajax() else None
         return json_response(exception=exception, errors=errors,
@@ -270,8 +269,8 @@ def save_step_view(req, session):
             permissions=form.cleaned_data["permissions"],
             import_sld_file=sld,
             upload_type=base_file[0].file_type.code,
-            geogit=form.cleaned_data['geogit'],
-            geogit_store=form.cleaned_data['geogit_store'],
+            geogig=form.cleaned_data['geogig'],
+            geogig_store=form.cleaned_data['geogig_store'],
             time=form.cleaned_data['time']
         )
         return _next_step_response(req, upload_session, force_ajax=True)
@@ -447,33 +446,19 @@ def time_step_view(request, upload_session):
 
     cleaned = form.cleaned_data
 
-    time_attribute_name, time_transform_type = None, None
-    end_time_attribute_name, end_time_transform_type = None, None
+    start_attribute_and_type = cleaned.get('start_attribute', None)
 
-    time_attribute = cleaned.get('attribute', None)
-    end_time_attribute = cleaned.get('end_attribute', None)
-
-    # submitted values will be in the form of '<name> [<type>]'
-    name_pat = re.compile('^\S+')
-    type_pat = re.compile('\[(.*)\]')
-
-    if time_attribute:
-        time_attribute_name = name_pat.search(time_attribute).group(0)
-        time_attribute_type = type_pat.search(time_attribute).group(1)
-        time_transform_type = None if time_attribute_type == 'Date' else 'DateFormatTransform'
-    if end_time_attribute:
-        end_time_attribute_name = name_pat.search(end_time_attribute).group(0)
-        end_time_attribute_type = type_pat.search(end_time_attribute).group(1)
-        end_time_transform_type = None if end_time_attribute_type == 'Date' else 'DateFormatTransform'
-
-    if time_attribute:
+    if start_attribute_and_type:
+        tx = lambda type_name: None if type_name is None or type_name == 'Date' \
+            else 'DateFormatTransform'
+        end_attribute, end_type = cleaned.get('end_attribute', (None, None))
         upload.time_step(
             upload_session,
-            time_attribute=time_attribute_name,
-            time_transform_type=time_transform_type,
+            time_attribute=start_attribute_and_type[0],
+            time_transform_type=tx(start_attribute_and_type[1]),
             time_format=cleaned.get('attribute_format', None),
-            end_time_attribute=end_time_attribute_name,
-            end_time_transform_type=end_time_transform_type,
+            end_time_attribute=end_attribute,
+            end_time_transform_type=tx(end_type),
             end_time_format=cleaned.get('end_attribute_format', None),
             presentation_strategy=cleaned['presentation_strategy'],
             precision_value=cleaned['precision_value'],
@@ -499,7 +484,14 @@ def run_response(req, upload_session):
 
 
 def final_step_view(req, upload_session):
-    saved_layer = upload.final_step(upload_session, req.user)
+    try:
+        saved_layer = upload.final_step(upload_session, req.user)
+
+    except upload.LayerNotReady:
+        return json_response({'status': 'pending',
+                              'success': True,
+                              'redirect_to': '/upload/final'})
+
     # this response is different then all of the other views in the
     # upload as it does not return a response as a json object
     return json_response(
@@ -606,10 +598,18 @@ def view(req, step):
         # must be put back to update object in session
         if upload_session:
             if step == 'final':
-                # we're done with this session, wax it
-                Upload.objects.update_from_session(upload_session)
-                upload_session = None
-                del req.session[_SESSION_KEY]
+                delete_session = True
+                try:
+                    resp_js = json.loads(resp.content)
+                    delete_session = resp_js.get('status') != 'pending'
+                except:
+                    pass
+
+                if delete_session:
+                    # we're done with this session, wax it
+                    Upload.objects.update_from_session(upload_session)
+                    upload_session = None
+                    del req.session[_SESSION_KEY]
             else:
                 req.session[_SESSION_KEY] = upload_session
         elif _SESSION_KEY in req.session:

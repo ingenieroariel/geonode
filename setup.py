@@ -82,7 +82,7 @@ setup(name='GeoNode',
         "pillow", # python-pillow
         "lxml", # python-lxml
         # "psycopg2==2.4.5", # python-psycopg2
-        "Django >=1.6.1, <=1.6.5", # python-django
+        "Django==1.6.10", # python-django
 
         # Other
         "beautifulsoup4==4.2.1", # python-bs4
@@ -105,38 +105,43 @@ setup(name='GeoNode',
         ## Apps with packages provided in GeoNode's PPA on Launchpad.
         "pinax-theme-bootstrap==3.0a11",
         "pinax-theme-bootstrap-account==1.0b2",
-        "django-forms-bootstrap==2.0.3.post1",
+        "django-forms-bootstrap==3.0.1",
         "django-friendly-tag-loader==1.1",
-        "django-taggit-templatetags==0.4.6dev",
         "django-activity-stream==0.4.5beta1",
         "django-downloadview==1.2",
         "django-tastypie==0.11.0",
-        "django-polymorphic==0.5.3",
-        "django-leaflet==0.13.2",
-        "django-autocomplete-light==1.4.13",
-        "django-modeltranslation",
+        "django-polymorphic==0.5.6",
+        "django-leaflet==0.13.7",
+        "django-autocomplete-light==1.4.14",
+        "django-modeltranslation==0.8",
 
         # GeoNode org maintained apps.
         "django-geoexplorer==4.0.4",
         "geonode-user-messages==0.1.1",
         "geonode-avatar==2.1.3",
-        "geonode-announcements==1.0.3",
+        "geonode-announcements==1.0.5",
         "geonode-agon-ratings==0.3.1",
-        "geonode-user-accounts==1.0.3",
+        "geonode-user-accounts==1.0.9",
         "geonode-arcrest==10.2",
         "geonode-notification==1.1.1",
         "geonode-dialogos==0.4",
-        "gsconfig==0.6.9",
+        "gsconfig==0.6.11",
         "gsimporter==0.1",
         "gisdata==0.5.4",
 
-        # GeoPython dependencies
-        "OWSLib >=0.7.2, <=0.8.7",
-        "pycsw >=1.6.4, <=1.8.2",
+        # geopython dependencies
+        "OWSLib==0.8.10",
+        "pycsw==1.10.0",
 
         # haystack/elasticsearch, uncomment to use
         "django-haystack==2.1.0",
-        "pyelasticsearch==0.6.1"
+        "pyelasticsearch==0.6.1",
+        "celery==3.1.17",
+        "django-celery==3.1.16",
+
+        # datetimepicker widget
+        "django-bootstrap3-datetimepicker==2.2.3",
+        "flake8==2.2.5"
         ],
       zip_safe=False,
       )

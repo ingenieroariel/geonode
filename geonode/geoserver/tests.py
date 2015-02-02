@@ -35,7 +35,7 @@ class LayerTests(TestCase):
         layer = Layer.objects.all()[0]
 
         bob = get_user_model().objects.get(username='bobby')
-        assign_perm('change_resourcebase', bob, layer.get_self_resource())
+        assign_perm('change_layer_style', bob, layer)
 
         c = Client()
         logged_in = c.login(username='bobby', password='bob')
@@ -134,7 +134,7 @@ class LayerTests(TestCase):
 
         bob = get_user_model().objects.get(username='bobby')
         layer_ca = Layer.objects.get(typename='geonode:CA')
-        assign_perm('change_resourcebase', bob, layer_ca.get_self_resource())
+        assign_perm('change_layer_data', bob, layer_ca)
 
         # Test that requesting when supplying the geoserver credentials returns
         # the expected json
@@ -157,7 +157,8 @@ class LayerTests(TestCase):
         c = Client()
         response = c.get(reverse('layer_acls'), **valid_auth_headers)
         response_json = json.loads(response.content)
-        self.assertEquals(expected_result, response_json)
+        # 'ro' and 'rw' are unsorted collections
+        self.assertEquals(sorted(expected_result), sorted(response_json))
 
         # Test that requesting when supplying invalid credentials returns the
         # appropriate error code
@@ -232,12 +233,12 @@ class UtilsTests(TestCase):
                 'MAPFISH_PRINT_ENABLED': True,
                 'PRINT_NG_ENABLED': True,
                 'GEONODE_SECURITY_ENABLED': True,
-                'GEOGIT_ENABLED': False,
+                'GEOGIG_ENABLED': False,
                 'WMST_ENABLED': False,
                 'BACKEND_WRITE_ENABLED': True,
                 'WPS_ENABLED': False,
                 'DATASTORE': str(),
-                'GEOGIT_DATASTORE_DIR': str(),
+                'GEOGIG_DATASTORE_DIR': str(),
             }
         }
 
@@ -245,7 +246,7 @@ class UtilsTests(TestCase):
             'BACKEND': 'geonode.rest',
             'OPTIONS': {
                 'TIME_ENABLED': False,
-                'GEOGIT_ENABLED': False}}
+                'GEOGIG_ENABLED': False}}
 
         self.DATABASE_DEFAULT_SETTINGS = {
             'default': {
@@ -277,7 +278,7 @@ class UtilsTests(TestCase):
             self.assertTrue(ogc_settings.MAPFISH_PRINT_ENABLED)
             self.assertTrue(ogc_settings.PRINT_NG_ENABLED)
             self.assertTrue(ogc_settings.GEONODE_SECURITY_ENABLED)
-            self.assertFalse(ogc_settings.GEOGIT_ENABLED)
+            self.assertFalse(ogc_settings.GEOGIG_ENABLED)
             self.assertFalse(ogc_settings.WMST_ENABLED)
             self.assertTrue(ogc_settings.BACKEND_WRITE_ENABLED)
             self.assertFalse(ogc_settings.WPS_ENABLED)

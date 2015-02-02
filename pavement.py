@@ -266,7 +266,8 @@ def package(options):
         'start_django'])
 @cmdopts([
     ('bind=', 'b', 'Bind server to provided IP address and port number.'),
-    ('java_path=', 'j', 'Full path to java install for Windows')
+    ('java_path=', 'j', 'Full path to java install for Windows'),
+    ('foreground', 'f', 'Do not run in background but in foreground')
 ], share_with=['start_django', 'start_geoserver'])
 def start():
     """
@@ -311,7 +312,8 @@ def start_django():
     Start the GeoNode Django application
     """
     bind = options.get('bind', '')
-    sh('python manage.py runserver %s &' % bind)
+    foreground = '' if options.get('foreground', False) else '&'
+    sh('python manage.py runserver %s %s' % (bind, foreground))
 
 
 @cmdopts([
@@ -341,7 +343,13 @@ def start_geoserver(options):
     # prevents geonode security from initializing correctly otherwise
     with pushd(data_dir):
         javapath = "java"
-        loggernullpath = "/dev/null"
+        loggernullpath = os.devnull
+
+        # checking if our loggernullpath exists and if not, reset it to something manageable
+        if loggernullpath == "nul":
+            open("../../downloaded/null.txt", 'w+').close()
+            loggernullpath = "../../downloaded/null.txt"
+
         try:
             sh(('java -version'))
         except:
@@ -350,10 +358,6 @@ def start_geoserver(options):
                 sys.exit(1)
             # if there are spaces
             javapath = 'START /B "" "' + options['java_path'] + '"'
-            # cmd log file needs to exist in windows
-            # using folder from .gitignore
-            open("../../downloaded/null.txt", 'w+').close()
-            loggernullpath = "../../downloaded/null.txt"
 
         sh((
             '%(javapath)s -Xmx512m -XX:MaxPermSize=256m'
@@ -429,6 +433,16 @@ def test_integration(options):
     if not success:
         sys.exit(1)
 
+@task
+def run_tests():
+    """
+    Executes the entire test suite.
+    """
+    sh('python manage.py test geonode.tests.smoke')
+    call_task('test')
+    call_task('test_integration')
+    call_task('test_integration', options={'name': 'geonode.tests.csw'})
+    sh('flake8 geonode')
 
 @task
 @needs(['stop'])
@@ -494,17 +508,15 @@ def deb(options):
 
     info('Creating package for GeoNode version %s' % version)
 
-    with pushd('package'):
-        # Get rid of any uncommitted changes to debian/changelog
-        info('Getting rid of any uncommitted changes in debian/changelog')
-        sh('git checkout debian/changelog')
+    # Get rid of any uncommitted changes to debian/changelog
+    info('Getting rid of any uncommitted changes in debian/changelog')
+    sh('git checkout package/debian/changelog')
 
-        # Workaround for git-dch bug
-        # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=594580
-        # path('.git').makedirs()
-        # Link the parent git repository folder in to the current one
-        # needed by git-dch
-        sh('ln -s ../.git .git')
+    # Workaround for git-dch bug
+    # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=594580
+    sh('ln -s %s %s' % (os.path.realpath('.git'), os.path.realpath('package')))
+
+    with pushd('package'):
 
         # Install requirements
         #sh('sudo apt-get -y install debhelper devscripts git-buildpackage')
@@ -514,7 +526,7 @@ def deb(options):
 
         deb_changelog = path('debian') / 'changelog'
         for line in fileinput.input([deb_changelog], inplace=True):
-            print line.replace("urgency=low", "urgency=high"),
+            print line.replace("urgency=medium", "urgency=high"),
 
         ## Revert workaround for git-dhc bug
         sh('rm -rf .git')

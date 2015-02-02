@@ -2,8 +2,11 @@
 
 (function(){
 
-  var module = angular.module('main_search', [], function($locationProvider) {
-      $locationProvider.html5Mode(true);
+  var module = angular.module('geonode_main_search', [], function($locationProvider) {
+      $locationProvider.html5Mode({
+        enabled: true,
+        requireBase: false
+      });
 
       // make sure that angular doesn't intercept the page links
       angular.element("a").prop("target", "_self");
@@ -113,7 +116,7 @@
   * Load data from api and defines the multiple and single choice handlers
   * Syncs the browser url with the selections
   */
-  module.controller('MainController', function($injector, $scope, $location, $http, Configs){
+  module.controller('geonode_search_controller', function($injector, $scope, $location, $http, Configs){
     $scope.query = $location.search();
     $scope.query.limit = $scope.query.limit || CLIENT_RESULTS_LIMIT;
     $scope.query.offset = $scope.query.offset || 0;
@@ -131,8 +134,8 @@
             $scope.text_query = $location.search()['q'].replace(/\+/g," ");
           }
         } else {
-          if ($location.search().hasOwnProperty('title__contains')){
-            $scope.text_query = $location.search()['title__contains'].replace(/\+/g," ");
+          if ($location.search().hasOwnProperty('title__icontains')){
+            $scope.text_query = $location.search()['title__icontains'].replace(/\+/g," ");
           }
         }
 
@@ -289,7 +292,8 @@
           choiceSelector: 'span',
           hideAfter: 200,
           minimumCharacters: 1,
-          appendAutocomplete: $('#text_search_input')
+          appendAutocomplete: $('#text_search_input'),
+          placeholder: gettext('Enter your text here ...')
     });
     $('#text_search_input').bind('selectChoice', function(e, choice, text_autocomplete) {
           if(choice[0].children[0] == undefined) {
@@ -302,12 +306,23 @@
         if (HAYSTACK_SEARCH)
             $scope.query['q'] = $('#text_search_input').val();
         else
-            $scope.query['title__contains'] = $('#text_search_input').val();
+            $scope.query['title__icontains'] = $('#text_search_input').val();
         query_api($scope.query);
     });
 
 
-
+    $scope.feature_select = function($event){
+      var element = $($event.target);
+      var article = $(element.parents('article')[0]);
+      if (article.hasClass('resource_selected')){
+        element.html('Select');
+        article.removeClass('resource_selected');
+      }
+      else{
+        element.html('Deselect');
+        article.addClass('resource_selected');
+      } 
+    };
 
     /*
     * Date management
@@ -317,7 +332,7 @@
       'date__gte': '',
       'date__lte': ''
     };
-
+    var init_date = true;
     $scope.$watch('date_query', function(){
       if($scope.date_query.date__gte != '' && $scope.date_query.date__lte != ''){
         $scope.query['date__range'] = $scope.date_query.date__gte + ',' + $scope.date_query.date__lte;
@@ -336,7 +351,12 @@
         delete $scope.query['date__gte'];
         delete $scope.query['date__lte'];
       }
-      query_api($scope.query);
+      if (!init_date){
+        query_api($scope.query);
+      }else{
+        init_date = false;
+      }
+      
     }, true);
 
     /*

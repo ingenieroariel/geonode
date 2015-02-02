@@ -6,15 +6,16 @@ from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.db import models, IntegrityError
 from django.utils.translation import ugettext_lazy as _
-from taggit.managers import TaggableManager
+from django.db.models import signals
 
+from taggit.managers import TaggableManager
 from guardian.shortcuts import get_objects_for_group
 
 
 class GroupProfile(models.Model):
     GROUP_CHOICES = [
         ("public", _("Public")),
-        ("public-invite", _("Public (invite-only))")),
+        ("public-invite", _("Public (invite-only)")),
         ("private", _("Private")),
     ]
 
@@ -105,7 +106,7 @@ class GroupProfile(models.Model):
         """
         return get_user_model().objects.filter(
             id__in=self.member_queryset().filter(
-                role='manager') .values_list(
+                role='manager').values_list(
                 "user",
                 flat=True))
 
@@ -133,8 +134,11 @@ class GroupProfile(models.Model):
     def join(self, user, **kwargs):
         if user == user.get_anonymous():
             raise ValueError("The invited user cannot be anonymous")
-        GroupMember(group=self, user=user, **kwargs).save()
-        user.groups.add(self.group)
+        member, created = GroupMember.objects.get_or_create(group=self, user=user, defaults=kwargs)
+        if created:
+            user.groups.add(self.group)
+        else:
+            raise ValueError("The invited user \"{0}\" is already a member".format(user.username))
 
     def invite(self, user, from_user, role="member", send=True):
         params = dict(role=role, from_user=from_user)
@@ -249,3 +253,12 @@ class GroupInvitation(models.Model):
                 "You can't decline an invitation that wasn't for you")
         self.state = "declined"
         self.save()
+
+
+def group_pre_delete(instance, sender, **kwargs):
+    """Make sure that the anonymous group is not deleted"""
+    if instance.name == 'anonymous':
+        raise Exception('Deletion of the anonymous group is\
+         not permitted as will break the geonode permissions system')
+
+signals.pre_delete.connect(group_pre_delete, sender=Group)

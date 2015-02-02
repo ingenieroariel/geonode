@@ -154,6 +154,10 @@ class Layer(ResourceBase):
         else:
             return self.typename
 
+    @property
+    def attributes(self):
+        return self.attribute_set.exclude(attribute='the_geom')
+
     def get_base_file(self):
         """Get the shp or geotiff file for this layer.
         """
@@ -199,12 +203,10 @@ class Layer(ResourceBase):
 
     class Meta:
         # custom permissions,
-        # change and delete are standard in django
+        # change and delete are standard in django-guardian
         permissions = (
-            ('view_layer',
-             'Can view'),
-            ('change_layer_permissions',
-             "Can change permissions"),
+            ('change_layer_data', 'Can edit layer data'),
+            ('change_layer_style', 'Can change layer style'),
         )
 
     # Permission Level Constants
@@ -293,7 +295,7 @@ class Attribute(models.Model):
         _('attribute label'),
         help_text=_('title of attribute as displayed in GeoNode'),
         max_length=255,
-        blank=False,
+        blank=True,
         null=True,
         unique=False)
     attribute_type = models.CharField(
@@ -485,6 +487,10 @@ def post_delete_layer(instance, sender, **kwargs):
     if instance.default_style and Layer.objects.filter(
             default_style__id=instance.default_style.id).count() == 0:
         instance.default_style.delete()
+
+    if instance.upload_session:
+        for lf in instance.upload_session.layerfile_set.all():
+            lf.file.delete()
 
 
 signals.pre_save.connect(pre_save_layer, sender=Layer)

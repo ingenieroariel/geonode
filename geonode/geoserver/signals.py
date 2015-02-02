@@ -1,13 +1,11 @@
 import errno
 import logging
 import urllib
-import json
 
 from urlparse import urlparse, urljoin
 from socket import error as socket_error
 
 from django.utils.translation import ugettext, ugettext_lazy as _
-from django.core.files.base import ContentFile
 from django.conf import settings
 
 from geonode import GeoNodeException
@@ -15,10 +13,9 @@ from geonode.geoserver.ows import wcs_links, wfs_links, wms_links
 from geonode.geoserver.helpers import cascading_delete, set_attributes
 from geonode.geoserver.helpers import set_styles, gs_catalog, get_coverage_grid_extent
 from geonode.geoserver.helpers import ogc_server_settings
-from geonode.geoserver.helpers import geoserver_upload
-from geonode.utils import http_client
+from geonode.geoserver.helpers import geoserver_upload, http_client
+from geonode.base.models import ResourceBase
 from geonode.base.models import Link
-from geonode.base.models import Thumbnail
 from geonode.layers.utils import create_thumbnail
 from geonode.people.models import Profile
 
@@ -85,7 +82,7 @@ def geoserver_pre_save(instance, sender, **kwargs):
     # Get metadata links
     metadata_links = []
     for link in instance.link_set.metadata():
-        metadata_links.append((link.name, link.mime, link.url))
+        metadata_links.append((link.mime, link.name, link.url))
 
     gs_resource.metadata_links = metadata_links
     # gs_resource should only be called if
@@ -138,6 +135,12 @@ def geoserver_post_save(instance, sender, **kwargs):
        to be saved to the database before accessing them.
     """
 
+    if type(instance) is ResourceBase:
+        if hasattr(instance, 'layer'):
+            instance = instance.layer
+        else:
+            return
+
     if instance.storeType == "remoteStore":
         # Save layer attributes
         set_attributes(instance)
@@ -158,9 +161,14 @@ def geoserver_post_save(instance, sender, **kwargs):
     if gs_resource is None:
         return
 
+    if settings.RESOURCE_PUBLISHING:
+        if instance.is_published != gs_resource.advertised:
+            if getattr(ogc_server_settings, "BACKEND_WRITE_ENABLED", True):
+                gs_resource.advertised = instance.is_published
+                gs_catalog.save(gs_resource)
+
     if any(instance.keyword_list()):
         gs_resource.keywords = instance.keyword_list()
-
         # gs_resource should only be called if
         # ogc_server_settings.BACKEND_WRITE_ENABLED == True
         if getattr(ogc_server_settings, "BACKEND_WRITE_ENABLED", True):
@@ -176,7 +184,6 @@ def geoserver_post_save(instance, sender, **kwargs):
     width = int(height * dataAspect)
 
     # Set download links for WMS, WCS or WFS and KML
-
     links = wms_links(ogc_server_settings.public_url + 'wms?',
                       instance.typename.encode('utf-8'), instance.bbox_string,
                       instance.srid, height, width)
@@ -211,11 +218,12 @@ def geoserver_post_save(instance, sender, **kwargs):
                                        )
                                        )
 
-        if gs_resource.store.type.lower() == 'geogit':
-            repo_url = '{url}geogit/{workspace}:{store}'.format(
+        if gs_resource.store.type.lower() == 'geogig' and \
+                gs_resource.store.connection_parameters.get('geogig_repository'):
+
+            repo_url = '{url}geogig/{geogig_repository}'.format(
                 url=ogc_server_settings.public_url,
-                workspace=instance.workspace,
-                store=instance.store)
+                geogig_repository=gs_resource.store.connection_parameters.get('geogig_repository'))
 
             path = gs_resource.dom.findall('nativeName')
 
@@ -225,7 +233,7 @@ def geoserver_post_save(instance, sender, **kwargs):
             Link.objects.get_or_create(resource=instance.resourcebase_ptr,
                                        url=repo_url,
                                        defaults=dict(extension='html',
-                                                     name='Clone in GeoGit',
+                                                     name='Clone in GeoGig',
                                                      mime='text/xml',
                                                      link_type='html'
                                                      )
@@ -239,7 +247,7 @@ def geoserver_post_save(instance, sender, **kwargs):
             Link.objects.get_or_create(resource=instance.resourcebase_ptr,
                                        url=command_url('log'),
                                        defaults=dict(extension='json',
-                                                     name='GeoGit log',
+                                                     name='GeoGig log',
                                                      mime='application/json',
                                                      link_type='html'
                                                      )
@@ -248,7 +256,7 @@ def geoserver_post_save(instance, sender, **kwargs):
             Link.objects.get_or_create(resource=instance.resourcebase_ptr,
                                        url=command_url('statistics'),
                                        defaults=dict(extension='json',
-                                                     name='GeoGit statistics',
+                                                     name='GeoGig statistics',
                                                      mime='application/json',
                                                      link_type='html'
                                                      )
@@ -361,22 +369,14 @@ def geoserver_post_save(instance, sender, **kwargs):
 
     thumbnail_remote_url = ogc_server_settings.PUBLIC_LOCATION + \
         "wms/reflect?" + p
-    thumbail_create_url = ogc_server_settings.LOCATION + \
+
+    thumbnail_create_url = ogc_server_settings.LOCATION + \
         "wms/reflect?" + p
 
-    # This is a workaround for development mode where cookies are not shared and the layer is not public so
-    # not visible through geoserver
-    if settings.DEBUG:
-        from geonode.security.views import _perms_info_json
-        current_perms = _perms_info_json(instance.get_self_resource())
-        instance.set_default_permissions()
+    create_thumbnail(instance, thumbnail_remote_url, thumbnail_create_url, ogc_client=http_client)
 
-    create_thumbnail(instance, thumbnail_remote_url, thumbail_create_url)
-
-    if settings.DEBUG:
-        instance.set_permissions(json.loads(current_perms))
-
-    legend_url = ogc_server_settings.PUBLIC_LOCATION + 'wms?request=GetLegendGraphic&format=image/png&WIDTH=20&HEIGHT=20&LAYER=' + \
+    legend_url = ogc_server_settings.PUBLIC_LOCATION + \
+        'wms?request=GetLegendGraphic&format=image/png&WIDTH=20&HEIGHT=20&LAYER=' + \
         instance.typename + '&legend_options=fontAntiAliasing:true;fontSize:12;forceLabels:on'
 
     Link.objects.get_or_create(resource=instance.resourcebase_ptr,
@@ -477,8 +477,6 @@ def geoserver_post_save_map(instance, sender, **kwargs):
         if layer.local:
             local_layers.append(layer.name)
 
-    image = None
-
     # If the map does not have any local layers, do not create the thumbnail.
     if len(local_layers) > 0:
         params = {
@@ -498,51 +496,10 @@ def geoserver_post_save_map(instance, sender, **kwargs):
         # with the WMS parser.
         p = "&".join("%s=%s" % item for item in params.items())
 
-        thumbnail_remote_url = ogc_server_settings.LOCATION + \
+        thumbnail_remote_url = ogc_server_settings.PUBLIC_LOCATION + \
             "wms/reflect?" + p
 
-        Link.objects.get_or_create(resource=instance.resourcebase_ptr,
-                                   url=thumbnail_remote_url,
-                                   defaults=dict(
-                                       extension='png',
-                                       name=_("Remote Thumbnail"),
-                                       mime='image/png',
-                                       link_type='image',
-                                   )
-                                   )
+        thumbnail_create_url = ogc_server_settings.LOCATION + \
+            "wms/reflect?" + p
 
-        # Download thumbnail and save it locally.
-        resp, image = http_client.request(thumbnail_remote_url)
-
-        if 'ServiceException' in image or resp.status < 200 or resp.status > 299:
-            msg = 'Unable to obtain thumbnail: %s' % image
-            logger.debug(msg)
-            # Replace error message with None.
-            image = None
-
-    if image is not None:
-        if instance.has_thumbnail():
-            instance.thumbnail.thumb_file.delete()
-        else:
-            instance.thumbnail = Thumbnail()
-
-        instance.thumbnail.thumb_file.save(
-            'map-%s-thumb.png' %
-            instance.id,
-            ContentFile(image))
-        instance.thumbnail.thumb_spec = thumbnail_remote_url
-        instance.thumbnail.save()
-
-        thumbnail_url = urljoin(
-            settings.SITEURL,
-            instance.thumbnail.thumb_file.url)
-
-        Link.objects.get_or_create(resource=instance.resourcebase_ptr,
-                                   url=thumbnail_url,
-                                   defaults=dict(
-                                       name=_('Thumbnail'),
-                                       extension='png',
-                                       mime='image/png',
-                                       link_type='image',
-                                   )
-                                   )
+        create_thumbnail(instance, thumbnail_remote_url, thumbnail_create_url, check_bbox=False)

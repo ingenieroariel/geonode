@@ -698,7 +698,7 @@ def _register_harvested_service(url, username, password, csw=None, owner=None):
                                          csw.identification.title or url),
                                      title=csw.identification.title,
                                      version=csw.identification.version,
-                                     abstract=csw.identification.abstract,
+                                     abstract=csw.identification.abstract or _("Not provided"),
                                      owner=owner)
 
     service.keywords = ','.join(csw.identification.keywords)
@@ -795,8 +795,10 @@ def _register_arcgis_url(url, username, password, owner=None, parent=None):
     if re.search("\/MapServer\/*(f=json)*", baseurl):
         # This is a MapService
         arcserver = ArcMapService(baseurl)
-        return_json = [
-            _process_arcgis_service(arcserver, owner=owner, parent=parent)]
+        if isinstance(arcserver, ArcMapService) and arcserver.spatialReference.wkid in [102100, 3857, 900913]:
+            return_json = [_process_arcgis_service(arcserver, owner=owner, parent=parent)]
+        else:
+            return_json = [{'msg':  _("Could not find any layers in a compatible projection.")}]
 
     else:
         # This is a Folder
@@ -942,7 +944,8 @@ def _process_arcgis_folder(folder, services=[], owner=None, parent=None):
                     service, owner, parent=parent)
             else:
                 return_dict['msg'] = _("Could not find any layers in a compatible projection: \
-                The spatial id was: %s and the url %s" % (service.spatialReference.wkid, service.url))
+                The spatial id was: %(srs)s and the url %(url)s" % {'srs': service.spatialReference.wkid,
+                                                                    'url': service.url})
 
         services.append(return_dict)
 

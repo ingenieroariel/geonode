@@ -22,7 +22,6 @@
 {% block body_class %}layers{% endblock %}
 
 {% block body_outer %}
-
 <div class="row">
   <div class="col-md-12">
     <h2 class="page-title">{{ resource.title|default:resource.typename }}</h2>
@@ -37,7 +36,7 @@
     </div>
 
     <div class="layer-actions">
-      {% include "layers/_actions.html" %}
+      {% include "_actions.html" %}
     </div>
 
     <div class="tab-content">
@@ -57,9 +56,9 @@
                 </tr>
               </thead>
               <tbody>
-                {% for attribute in resource.attribute_set.all %}
+                {% for attribute in resource.attributes %}
                   <tr>
-                    <td>{{ attribute }}</td>
+                    <td {% if attribute.attribute_label and attribute.attribute_label != attribute.attribute %}title="{{ attribute.attribute }}"{% endif %}>{{ attribute }}</td>
                     {% if attribute.unique_values == "NA" %}
                     <td>{{ attribute.unique_values }}</td>
                     {% else %}
@@ -93,11 +92,11 @@
         {% endwith %}
       </article>
 
-      {% if GEOGIT_ENABLED and resource.link_set.geogit %}
-        {% with "_geogit_layer_detail.html" as geogit_template %}
-        <article id="geogit" class="tab-pane">
+      {% if GEOGIG_ENABLED and resource.link_set.geogig %}
+        {% with "_geogig_layer_detail.html" as geogig_template %}
+        <article id="geogig" class="tab-pane">
           {% with resource as obj %}
-            {% include geogit_template %}
+            {% include geogig_template %}
           {% endwith %}
         </article>
         {% endwith %}
@@ -124,9 +123,17 @@
 
     <ul class="list-group">
       {% if resource.storeType != "remoteStore" %}
-      <li class="list-group-item">
-        <button class="btn btn-default btn-md btn-block" data-toggle="modal" data-target="#download-layer">{% trans "Download Layer" %}</button>
-      </li>
+        {% get_obj_perms request.user for resource.get_self_resource as "perms" %}
+        
+        <li class="list-group-item">
+        {% if links %}
+           <button class="btn btn-default btn-md btn-block" data-toggle="modal" data-target="#download-layer">{% trans "Download Layer" %}</button>
+        {% else %}
+          {% if request.user.is_authenticated %}
+          <button class="btn btn-default btn-md btn-block" id="request-download">{% trans "Request Download" %}</button>
+          {% endif %}
+        {% endif %}
+        </li>
       {% endif %}
     <div class="modal fade" id="download-layer" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
       <div class="modal-dialog">
@@ -136,11 +143,13 @@
             <h4 class="modal-title" id="myModalLabel">{% trans "Download Layer" %}</h4>
           </div>
           <div class="modal-body">
+            {% if links %}
             <ul>
               {% for link in links %}
               <li><a href="{{ link.url }}">{% trans link.name %}</a></li>
               {% endfor %}
-            <ul>
+            </ul>
+            {% endif %}
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
@@ -215,13 +224,26 @@
           </div>
           <div class="modal-body">
             <ul>
-              <li><a href="{% url "layer_metadata" resource.service_typename %}">{% trans "Edit Metadata" %}</a></li>
-              {% if GEOSERVER_BASE_URL %}
-              <li><a href="{% url "layer_style_manage" resource.service_typename %}">{% trans "Manage Styles" %}</a></li>
-              <li><a class="style-edit" href="#">{% trans "Edit Styles" %}</a></li>
+              {% if "change_resourcebase_metadata" in perms %}
+              <li><a href="{% url "layer_metadata" resource.service_typename %}">{% trans "Edit Metadata" %}</a></li>  
+              {% endif %}             
+              {% if GEOSERVER_BASE_URL and not resource.service %}
+                {% if "change_layer_style" in layer_perms %}
+                <li><a href="{% url "layer_style_manage" resource.service_typename %}">{% trans "Manage Styles" %}</a></li>
+                  {% if preview == 'geoext' %}
+                  <li><a class="style-edit" href="#">{% trans "Edit Styles" %}</a></li>
+                  {% endif %}
+                {% endif %}
               {% endif %}
-              <li><a href="{% url "layer_replace" resource.service_typename %}">{% trans "Replace this Layer" %}</a></li>
-              <li><a href="{% url "layer_remove" resource.service_typename %}">{% trans "Remove this Layer" %}</a></li>
+              {% if "change_resourcebase" in perms %}       
+                <li><a href="#" id="set_thumbnail">{% trans "Set Map Thumbnail" %}</a></li> 
+              {% endif %}
+              {% if "change_resourcebase" in perms and not resource.service %}
+                <li><a href="{% url "layer_replace" resource.service_typename %}">{% trans "Replace this Layer" %}</a></li>
+              {% endif %}
+              {% if "delete_resourcebase" in perms %}
+                <li><a href="{% url "layer_remove" resource.service_typename %}">{% trans "Remove this Layer" %}</a></li>
+              {% endif %}
             </ul>
           </div>
           <div class="modal-footer">
@@ -231,7 +253,6 @@
       </div>
     </div>
     {% endif %}
-
     {% if resource.get_legend %}
     <li class="list-group-item">
       <h4 class="list-group-item-heading">{%trans "Legend" %}</h4>
@@ -297,7 +318,7 @@
     {% endif %}
 
     {% if GEONODE_SECURITY_ENABLED %}
-    {% if "change_resourcebase_permissions" in resource_perms %}
+    {% if "change_resourcebase_permissions" in perms %}
     <li class="list-group-item">
       <h4>{% trans "Permissions" %}</h4>
       <p>{% trans "Click the button below to change the permissions of this layer." %}</p>
@@ -306,14 +327,13 @@
     {% endif %}
     {% endif %}
 
+    {% if resource.storeType == "remoteStore" %}
     <li class="list-group-item">
-        {% if resource.storeType == "remoteStore" %}
             <h4>{% trans "External service layer" %}</h4>
             <div>{% trans "Source" %}: <a href="/services/{{resource.service.id}}">{{ resource.service.title }}</a></div>
             <div>{% trans "Type" %}: {{ resource.service.type }}</div>
-
-        {% endif %}
     </li>
+    {% endif %}
 
     {% include "base/_resourcebase_contact_snippet.html" %}
   </ul>
@@ -329,9 +349,9 @@
 
 {% block extra_script %}
 
-    {% if GEOGIT_ENABLED and resource.link_set.geogit %}
-        {% with "_geogit_scripts.html" as geogit_scripts_template %}
-            {% include  geogit_scripts_template %}
+    {% if GEOGIG_ENABLED and resource.link_set.geogig %}
+        {% with "_geogig_scripts.html" as geogig_scripts_template %}
+            {% include  geogig_scripts_template %}
         {% endwith %}
     {% endif %}
 
@@ -341,6 +361,7 @@
       {% overall_rating resource 'layer' as the_layer_rating %}
     {% endif %}
     {% include 'rating.html' %}
+    {% include 'request_download.html' %}
     <script type="text/javascript">
        $("#comment_submit_btn").click(function(event) {
             $.ajax({
@@ -373,6 +394,12 @@
     });
     {% endif %}
         </script>
+    <script type="text/javascript">
+      $('#set_thumbnail').click(function(){
+        createMapThumbnail();
+        $('#edit-layer').modal('toggle');
+      });
+    </script>
     {% if GEONODE_SECURITY_ENABLED %}
     {% include "_permissions_form_js.html" %}
     {% endif %}

@@ -30,6 +30,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import simplejson as json
 from django.http import HttpResponse
 from django.core.cache import cache
+from django.http import Http404
 
 DEFAULT_TITLE = ""
 DEFAULT_ABSTRACT = ""
@@ -451,12 +452,23 @@ def resolve_object(request, model, query, permission='base.view_resourcebase',
     permission_msg - optional message to use in 403
     """
     obj = get_object_or_404(model, **query)
+    obj_to_check = obj.get_self_resource()
+
+    if settings.RESOURCE_PUBLISHING:
+        if (not obj_to_check.is_published) and (
+                not request.user.has_perm('publish_resourcebase', obj_to_check)
+        ):
+            raise Http404
+
     allowed = True
+    if permission.split('.')[-1] in ['change_layer_data', 'change_layer_style']:
+        if obj.__class__.__name__ == 'Layer':
+            obj_to_check = obj
     if permission:
         if permission_required or request.method != 'GET':
             allowed = request.user.has_perm(
                 permission,
-                obj.get_self_resource())
+                obj_to_check)
     if not allowed:
         mesg = permission_msg or _('Permission Denied')
         raise PermissionDenied(mesg)
@@ -527,3 +539,35 @@ def num_decode(s):
     for c in s:
         n = n * BASE + ALPHABET_REVERSE[c]
     return n
+
+
+def format_urls(a, values):
+    b = []
+    for i in a:
+        j = i.copy()
+        try:
+            j['url'] = unicode(j['url']).format(**values)
+        except KeyError:
+            j['url'] = None
+        b.append(j)
+    return b
+
+
+def build_abstract(resourcebase, url=None, includeURL=True):
+    if resourcebase.abstract and url and includeURL:
+        return "{abstract} -- [{url}]({url})".format(abstract=resourcebase.abstract, url=url)
+    else:
+        return resourcebase.abstract
+
+
+def build_social_links(request, resourcebase):
+    social_url = "{protocol}://{host}{path}".format(
+        protocol=("https" if request.is_secure() else "http"),
+        host=request.get_host(),
+        path=request.get_full_path())
+    return format_urls(
+        settings.SOCIAL_ORIGINS,
+        {
+            'name': resourcebase.title,
+            'abstract': build_abstract(resourcebase, url=social_url, includeURL=True),
+            'url': social_url})

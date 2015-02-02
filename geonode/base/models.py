@@ -1,19 +1,18 @@
 import datetime
 import math
 import os
-import hashlib
 import logging
 
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
-from django.core.files.base import ContentFile
 from django.conf import settings
 from django.contrib.staticfiles.templatetags import staticfiles
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 from django.db.models import signals
+from django.core.files import File
 
 from mptt.models import MPTTModel, TreeForeignKey
 
@@ -28,7 +27,6 @@ from geonode.utils import forward_mercator
 from geonode.security.models import PermissionLevelMixin
 from taggit.managers import TaggableManager
 
-from geonode.people.models import Profile
 from geonode.people.enumerations import ROLE_VALUES
 
 logger = logging.getLogger(__name__)
@@ -76,7 +74,7 @@ class TopicCategory(models.Model):
     <CodeListDictionary gml:id="MD_MD_TopicCategoryCode">
     """
     identifier = models.CharField(max_length=255, default='location')
-    description = models.TextField()
+    description = models.TextField(default='')
     gn_description = models.TextField('GeoNode description', default='', null=True)
     is_choice = models.BooleanField(default=True)
 
@@ -151,34 +149,6 @@ class RestrictionCodeType(models.Model):
         verbose_name_plural = 'Metadata Restriction Code Types'
 
 
-class Thumbnail(models.Model):
-
-    thumb_file = models.FileField(upload_to='thumbs')
-    thumb_spec = models.TextField(null=True, blank=True)
-    version = models.PositiveSmallIntegerField(null=True, default=0)
-
-    def save_thumb(self, image, id):
-        """image must be png data in a string for now"""
-        self._delete_thumb()
-        md5 = hashlib.md5()
-        md5.update(id + str(self.version))
-        self.version = self.version + 1
-        self.thumb_file.save(md5.hexdigest() + ".png", ContentFile(image))
-
-    def _delete_thumb(self):
-        try:
-            self.thumb_file.delete()
-        except OSError:
-            pass
-
-    def delete(self):
-        self._delete_thumb()
-        super(Thumbnail, self).delete()
-
-    def __unicode__(self):
-        return self.thumb_file.name
-
-
 class License(models.Model):
     identifier = models.CharField(max_length=255, editable=False)
     name = models.CharField(max_length=100)
@@ -220,9 +190,7 @@ class ResourceBaseManager(PolymorphicManager):
         if superusers.count() == 0:
             raise RuntimeError('GeoNode needs at least one admin/superuser set')
 
-        contact = Profile.objects.get_or_create(user=superusers[0],
-                                                defaults={"name": "Geonode Admin"})[0]
-        return contact
+        return superusers[0]
 
     def get_queryset(self):
         return super(ResourceBaseManager, self).get_queryset().non_polymorphic()
@@ -301,10 +269,10 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin):
                                                     help_text=spatial_representation_type_help_text)
 
     # Section 5
-    temporal_extent_start = models.DateField(_('temporal extent start'), blank=True, null=True,
-                                             help_text=temporal_extent_start_help_text)
-    temporal_extent_end = models.DateField(_('temporal extent end'), blank=True, null=True,
-                                           help_text=temporal_extent_end_help_text)
+    temporal_extent_start = models.DateTimeField(_('temporal extent start'), blank=True, null=True,
+                                                 help_text=temporal_extent_start_help_text)
+    temporal_extent_end = models.DateTimeField(_('temporal extent end'), blank=True, null=True,
+                                               help_text=temporal_extent_end_help_text)
 
     supplemental_information = models.TextField(_('supplemental information'), default=DEFAULT_SUPPLEMENTAL_INFORMATION,
                                                 help_text=_('any other descriptive information about the dataset'))
@@ -352,20 +320,16 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin):
                                     default='<gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"/>',
                                     blank=True)
 
-    thumbnail = models.ForeignKey(Thumbnail, null=True, blank=True, on_delete=models.SET_NULL)
     popular_count = models.IntegerField(default=0)
     share_count = models.IntegerField(default=0)
 
     featured = models.BooleanField(default=False, help_text=_('Should this resource be advertised in home page?'))
+    is_published = models.BooleanField(default=True, help_text=_('Should this resource be published and searchable?'))
 
     # fields necessary for the apis
-    thumbnail_url = models.CharField(max_length=255, null=True, blank=True)
+    thumbnail_url = models.TextField(null=True, blank=True)
     detail_url = models.CharField(max_length=255, null=True, blank=True)
     rating = models.IntegerField(default=0, null=True)
-
-    def delete(self, *args, **kwargs):
-        super(ResourceBase, self).delete(*args, **kwargs)
-        resourcebase_post_delete(self)
 
     def __unicode__(self):
         return self.title
@@ -547,13 +511,31 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin):
 
     def has_thumbnail(self):
         """Determine if the thumbnail object exists and an image exists"""
-        if self.thumbnail is None:
-            return False
+        return self.link_set.filter(name='Thumbnail').exists()
 
-        if not hasattr(self.thumbnail.thumb_file, 'path'):
-            return False
+    def save_thumbnail(self, filename, image):
+        thumb_folder = 'thumbs'
+        upload_path = os.path.join(settings.MEDIA_ROOT, thumb_folder)
+        if not os.path.exists(upload_path):
+            os.makedirs(upload_path)
+        url = os.path.join(settings.MEDIA_URL, thumb_folder, filename)
 
-        return os.path.exists(self.thumbnail.thumb_file.path)
+        with open(os.path.join(upload_path, filename), 'w') as f:
+            thumbnail = File(f)
+            thumbnail.write(image)
+
+        Link.objects.get_or_create(resource=self,
+                                   url=url,
+                                   defaults=dict(
+                                       name='Thumbnail',
+                                       extension='png',
+                                       mime='image/png',
+                                       link_type='image',
+                                   ))
+
+        ResourceBase.objects.filter(id=self.id).update(
+            thumbnail_url=url
+        )
 
     def set_missing_info(self):
         """Set default permissions and point of contacts.
@@ -623,9 +605,14 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin):
 
     class Meta:
         # custom permissions,
-        # change and delete are standard in django
-        permissions = (('view_resourcebase', 'Can view'),
-                       ('change_resourcebase_permissions', "Can change permissions"), )
+        # add, change and delete are standard in django-guardian
+        permissions = (
+            ('view_resourcebase', 'Can view resource'),
+            ('change_resourcebase_permissions', 'Can change resource permissions'),
+            ('download_resourcebase', 'Can download resource'),
+            ('publish_resourcebase', 'Can publish resource'),
+            ('change_resourcebase_metadata', 'Can change resource metadata'),
+        )
 
 
 class LinkManager(models.Manager):
@@ -647,8 +634,8 @@ class LinkManager(models.Manager):
     def original(self):
         return self.get_query_set().filter(link_type='original')
 
-    def geogit(self):
-        return self.get_queryset().filter(name__icontains='geogit')
+    def geogig(self):
+        return self.get_queryset().filter(name__icontains='geogig')
 
     def ows(self):
         return self.get_queryset().filter(link_type__in=['OGC:WMS', 'OGC:WFS', 'OGC:WCS'])
@@ -680,11 +667,6 @@ class Link(models.Model):
 
     def __str__(self):
         return '%s link' % self.link_type
-
-
-def resourcebase_post_delete(instance):
-    if instance.thumbnail is not None:
-        instance.thumbnail.delete()
 
 
 def resourcebase_post_save(instance, *args, **kwargs):
